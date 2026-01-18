@@ -23,8 +23,8 @@ type Work struct {
 	Result      string     `json:"result,omitempty"`
 }
 
-// Agent represents an AI agent in the system
-type Agent struct {
+// WorkAgent represents an AI agent in the work orchestration system
+type WorkAgent struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
 	Status      string    `json:"status"` // active, idle, busy

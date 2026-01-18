@@ -38,6 +38,16 @@ security:
   #   - "your-api-key-here"
 
 projects:
+  - id: arbiter-self
+    name: Arbiter Self-Improvement
+    git_repo: https://github.com/jordanhubbard/arbiter
+    branch: main
+    beads_path: .beads
+    is_perpetual: true
+    context:
+      build_command: "go build"
+      test_command: "go test ./..."
+      description: "The Arbiter project itself - perpetual self-improvement"
   - id: example-project
     name: Example Project
     git_repo: /path/to/repo

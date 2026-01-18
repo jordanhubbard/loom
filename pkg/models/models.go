@@ -42,16 +42,38 @@ type Agent struct {
 	LastActive  time.Time `json:"last_active"`
 }
 
+// ProjectStatus represents the current state of a project
+type ProjectStatus string
+
+const (
+	ProjectStatusOpen     ProjectStatus = "open"
+	ProjectStatusClosed   ProjectStatus = "closed"
+	ProjectStatusReopened ProjectStatus = "reopened"
+)
+
+// ProjectComment represents a comment on a project's state
+type ProjectComment struct {
+	ID        string    `json:"id"`
+	ProjectID string    `json:"project_id"`
+	AuthorID  string    `json:"author_id"`  // Agent ID or "user-{id}"
+	Comment   string    `json:"comment"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
 // Project represents a project that agents work on
 type Project struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
 	GitRepo     string            `json:"git_repo"`
 	Branch      string            `json:"branch"`
-	BeadsPath   string            `json:"beads_path"` // Path to .beads directory
-	Context     map[string]string `json:"context"`    // Additional context for agents
+	BeadsPath   string            `json:"beads_path"`   // Path to .beads directory
+	Context     map[string]string `json:"context"`      // Additional context for agents
+	Status      ProjectStatus     `json:"status"`       // Current project status
+	IsPerpetual bool              `json:"is_perpetual"` // If true, project never closes
+	Comments    []ProjectComment  `json:"comments"`     // Comments on project state
 	CreatedAt   time.Time         `json:"created_at"`
 	UpdatedAt   time.Time         `json:"updated_at"`
+	ClosedAt    *time.Time        `json:"closed_at,omitempty"`
 	Agents      []string          `json:"agents"` // Agent IDs working on this project
 }
 

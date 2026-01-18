@@ -34,15 +34,18 @@ func (m *Manager) CreateProject(name, gitRepo, branch, beadsPath string, context
 	}
 
 	project := &models.Project{
-		ID:        projectID,
-		Name:      name,
-		GitRepo:   gitRepo,
-		Branch:    branch,
-		BeadsPath: beadsPath,
-		Context:   context,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Agents:    []string{},
+		ID:          projectID,
+		Name:        name,
+		GitRepo:     gitRepo,
+		Branch:      branch,
+		BeadsPath:   beadsPath,
+		Context:     context,
+		Status:      models.ProjectStatusOpen,
+		IsPerpetual: false,
+		Comments:    []models.ProjectComment{},
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+		Agents:      []string{},
 	}
 
 	m.projects[projectID] = project
@@ -174,8 +177,172 @@ func (m *Manager) LoadProjects(projects []models.Project) error {
 		if p.Agents == nil {
 			p.Agents = []string{}
 		}
+		if p.Comments == nil {
+			p.Comments = []models.ProjectComment{}
+		}
+		if p.Status == "" {
+			p.Status = models.ProjectStatusOpen
+		}
 		m.projects[p.ID] = &p
 	}
+
+	return nil
+}
+
+// CloseProject closes a project if conditions are met
+func (m *Manager) CloseProject(projectID, authorID, comment string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	project, ok := m.projects[projectID]
+	if !ok {
+		return fmt.Errorf("project not found: %s", projectID)
+	}
+
+	// Check if project is perpetual
+	if project.IsPerpetual {
+		return fmt.Errorf("cannot close perpetual project: %s", project.Name)
+	}
+
+	// Check if already closed
+	if project.Status == models.ProjectStatusClosed {
+		return fmt.Errorf("project already closed: %s", projectID)
+	}
+
+	// Update status
+	project.Status = models.ProjectStatusClosed
+	now := time.Now()
+	project.ClosedAt = &now
+	project.UpdatedAt = now
+
+	// Add closure comment
+	if comment != "" {
+		commentID := fmt.Sprintf("comment-%d", time.Now().UnixNano())
+		projectComment := models.ProjectComment{
+			ID:        commentID,
+			ProjectID: projectID,
+			AuthorID:  authorID,
+			Comment:   comment,
+			Timestamp: now,
+		}
+		project.Comments = append(project.Comments, projectComment)
+	}
+
+	return nil
+}
+
+// ReopenProject reopens a closed project
+func (m *Manager) ReopenProject(projectID, authorID, comment string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	project, ok := m.projects[projectID]
+	if !ok {
+		return fmt.Errorf("project not found: %s", projectID)
+	}
+
+	// Check if closed
+	if project.Status != models.ProjectStatusClosed {
+		return fmt.Errorf("project is not closed: %s", projectID)
+	}
+
+	// Update status
+	project.Status = models.ProjectStatusReopened
+	project.ClosedAt = nil
+	now := time.Now()
+	project.UpdatedAt = now
+
+	// Add reopen comment
+	if comment != "" {
+		commentID := fmt.Sprintf("comment-%d", now.UnixNano())
+		projectComment := models.ProjectComment{
+			ID:        commentID,
+			ProjectID: projectID,
+			AuthorID:  authorID,
+			Comment:   comment,
+			Timestamp: now,
+		}
+		project.Comments = append(project.Comments, projectComment)
+	}
+
+	return nil
+}
+
+// AddComment adds a comment to a project
+func (m *Manager) AddComment(projectID, authorID, comment string) (*models.ProjectComment, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	project, ok := m.projects[projectID]
+	if !ok {
+		return nil, fmt.Errorf("project not found: %s", projectID)
+	}
+
+	now := time.Now()
+	commentID := fmt.Sprintf("comment-%d", now.UnixNano())
+	projectComment := models.ProjectComment{
+		ID:        commentID,
+		ProjectID: projectID,
+		AuthorID:  authorID,
+		Comment:   comment,
+		Timestamp: now,
+	}
+
+	project.Comments = append(project.Comments, projectComment)
+	project.UpdatedAt = now
+
+	return &projectComment, nil
+}
+
+// GetComments returns all comments for a project
+func (m *Manager) GetComments(projectID string) ([]models.ProjectComment, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	project, ok := m.projects[projectID]
+	if !ok {
+		return nil, fmt.Errorf("project not found: %s", projectID)
+	}
+
+	return project.Comments, nil
+}
+
+// CanClose checks if a project can be closed (no open beads with work remaining)
+func (m *Manager) CanClose(projectID string, hasOpenWork bool) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	project, ok := m.projects[projectID]
+	if !ok {
+		return false
+	}
+
+	// Perpetual projects can never close
+	if project.IsPerpetual {
+		return false
+	}
+
+	// Already closed
+	if project.Status == models.ProjectStatusClosed {
+		return false
+	}
+
+	// If there's open work, cannot close
+	return !hasOpenWork
+}
+
+// SetPerpetual marks a project as perpetual (never closes)
+func (m *Manager) SetPerpetual(projectID string, isPerpetual bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	project, ok := m.projects[projectID]
+	if !ok {
+		return fmt.Errorf("project not found: %s", projectID)
+	}
+
+	project.IsPerpetual = isPerpetual
+	project.UpdatedAt = time.Now()
 
 	return nil
 }

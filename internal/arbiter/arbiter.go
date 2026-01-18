@@ -49,12 +49,13 @@ func (a *Arbiter) Initialize(ctx context.Context) error {
 	var projects []models.Project
 	for _, p := range a.config.Projects {
 		projects = append(projects, models.Project{
-			ID:        p.ID,
-			Name:      p.Name,
-			GitRepo:   p.GitRepo,
-			Branch:    p.Branch,
-			BeadsPath: p.BeadsPath,
-			Context:   p.Context,
+			ID:          p.ID,
+			Name:        p.Name,
+			GitRepo:     p.GitRepo,
+			Branch:      p.Branch,
+			BeadsPath:   p.BeadsPath,
+			IsPerpetual: p.IsPerpetual,
+			Context:     p.Context,
 		})
 	}
 	if err := a.projectManager.LoadProjects(projects); err != nil {

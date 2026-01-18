@@ -335,6 +335,10 @@ See LICENSE file for details.
 
 ## Roadmap
 
+- [x] Project state management (open, closed, reopened)
+- [x] Project comments and closure workflow
+- [x] Arbiter persona for self-improvement
+- [x] Perpetual projects that never close
 - [ ] Implement actual HTTP forwarding to providers
 - [ ] Add streaming support for real-time responses
 - [ ] Implement request/response logging and analytics
@@ -345,6 +349,60 @@ See LICENSE file for details.
 - [ ] Add metrics and monitoring endpoints
 - [ ] Implement rate limiting per provider
 - [ ] Add caching layer for responses
+
+## Project State Management
+
+Arbiter supports sophisticated project lifecycle management:
+
+### Project States
+- **Open**: Active project with ongoing work
+- **Closed**: Completed project with no remaining work
+- **Reopened**: Previously closed project that has been reopened
+
+### Features
+- **Comments**: Add timestamped comments to track project decisions
+- **Closure Workflow**: Close projects only when no open work remains
+- **Agent Consensus**: If open work exists, requires agent agreement to close
+- **Perpetual Projects**: Mark projects (like Arbiter itself) that never close
+
+### API Endpoints
+
+```bash
+# Close a project
+POST /api/v1/projects/{id}/close
+{
+  "author_id": "agent-123",
+  "comment": "All features complete, tests passing"
+}
+
+# Reopen a project
+POST /api/v1/projects/{id}/reopen
+{
+  "author_id": "agent-456",
+  "comment": "New requirements discovered"
+}
+
+# Add a comment
+POST /api/v1/projects/{id}/comments
+{
+  "author_id": "agent-789",
+  "comment": "Architecture review complete"
+}
+
+# Get project state
+GET /api/v1/projects/{id}/state
+```
+
+## The Arbiter Persona
+
+The Arbiter system includes a special **arbiter** persona that works on improving the Arbiter platform itself:
+
+- **Self-Improving**: Continuously enhances the platform
+- **Collaborative**: Works with UX, Engineering, PM, and Product personas
+- **Perpetual**: The arbiter project never closes
+- **Meta-Circular**: An AI orchestrator that orchestrates its own improvement
+
+See `personas/arbiter/` for the complete persona definition.
 
 ## Support
 
