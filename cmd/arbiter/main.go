@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/jordanhubbard/arbiter/internal/api"
 	"github.com/jordanhubbard/arbiter/internal/storage"
@@ -37,7 +38,7 @@ func main() {
 		path := r.URL.Path
 		if len(path) > len("/api/services/") {
 			// Determine which handler to use based on the path suffix
-			if containsString(path, "/costs") {
+			if strings.Contains(path, "/costs") {
 				if r.Method == http.MethodGet {
 					handler.GetServiceCosts(w, r)
 				} else if r.Method == http.MethodPut {
@@ -45,7 +46,7 @@ func main() {
 				} else {
 					http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 				}
-			} else if containsString(path, "/usage") {
+			} else if strings.Contains(path, "/usage") {
 				handler.SimulateUsage(w, r)
 			} else {
 				http.Error(w, "Not found", http.StatusNotFound)
@@ -76,13 +77,4 @@ func main() {
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func containsString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

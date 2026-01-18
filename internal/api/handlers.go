@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -185,7 +186,11 @@ func (h *Handler) UpdateServiceCosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	service, _ := h.storage.GetService(serviceID)
+	service, err := h.storage.GetService(serviceID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to retrieve service: %v", err), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(service)
 }
@@ -234,7 +239,11 @@ func (h *Handler) SimulateUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	service, _ := h.storage.GetService(serviceID)
+	service, err := h.storage.GetService(serviceID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to retrieve service: %v", err), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(service)
 }
@@ -245,29 +254,20 @@ func extractServiceID(path string) string {
 	// /api/services/:id/costs
 	// /api/services/:id/usage
 	
-	// Simple extraction: split by "/" and get the relevant part
-	parts := splitPath(path)
-	if len(parts) >= 4 && parts[0] == "api" && parts[1] == "services" {
-		return parts[2]
-	}
-	return ""
-}
-
-func splitPath(path string) []string {
-	parts := []string{}
-	current := ""
-	for _, ch := range path {
-		if ch == '/' {
-			if current != "" {
-				parts = append(parts, current)
-				current = ""
-			}
-		} else {
-			current += string(ch)
+	// Split by "/" and filter empty strings
+	parts := strings.Split(path, "/")
+	
+	// Filter out empty parts
+	filtered := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part != "" {
+			filtered = append(filtered, part)
 		}
 	}
-	if current != "" {
-		parts = append(parts, current)
+	
+	// Check if we have the expected structure: api/services/:id/...
+	if len(filtered) >= 4 && filtered[0] == "api" && filtered[1] == "services" {
+		return filtered[2]
 	}
-	return parts
+	return ""
 }
