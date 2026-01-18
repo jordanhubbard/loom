@@ -116,7 +116,7 @@ Your first task is to perform a comprehensive review of the Arbiter project:
    - Missing tests or test infrastructure
    - Insufficient documentation
    - Unclear contribution path
-   - Missing automation
+   - Missing automation (CI/CD pipelines, automated testing, linting)
 
 ### Phase 4: Create Beads
 For each finding, create appropriate beads:
