@@ -1,0 +1,30 @@
+# Arbiter Worker System - Quick Start Configuration
+# Minimal configuration to get started with the worker system
+
+# Single provider configuration (OpenAI)
+providers:
+  - id: openai-default
+    name: OpenAI GPT-4
+    type: openai
+    endpoint: https://api.openai.com/v1
+    api_key: ${OPENAI_API_KEY}  # Set this environment variable
+    model: gpt-4
+    enabled: true
+
+# Worker pool settings
+worker_pool:
+  max_workers: 5
+  default_provider: openai-default
+
+# Quick start instructions:
+# 1. Set your OpenAI API key:
+#    export OPENAI_API_KEY="sk-your-key-here"
+#
+# 2. Run the example:
+#    go run examples/worker_quickstart/main.go
+#
+# 3. The system will:
+#    - Register the OpenAI provider
+#    - Spawn a code-reviewer agent
+#    - Execute a sample task
+#    - Display the results

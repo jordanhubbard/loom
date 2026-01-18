@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	internalmodels "github.com/jordanhubbard/arbiter/internal/models"
-	"github.com/jordanhubbard/arbiter/internal/storage"
 	"github.com/jordanhubbard/arbiter/pkg/models"
 )
 

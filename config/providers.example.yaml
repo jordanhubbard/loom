@@ -1,0 +1,110 @@
+# Arbiter Worker System Configuration Example
+# This file demonstrates how to configure the worker system with multiple AI providers
+
+# Provider configurations
+# These are the AI providers that agents can use to execute tasks
+providers:
+  # OpenAI GPT-4
+  - id: openai-gpt4
+    name: OpenAI GPT-4
+    type: openai
+    endpoint: https://api.openai.com/v1
+    api_key: ${OPENAI_API_KEY}  # Set via environment variable
+    model: gpt-4
+    enabled: true
+
+  # OpenAI GPT-3.5 Turbo (faster, cheaper)
+  - id: openai-gpt35
+    name: OpenAI GPT-3.5 Turbo
+    type: openai
+    endpoint: https://api.openai.com/v1
+    api_key: ${OPENAI_API_KEY}
+    model: gpt-3.5-turbo
+    enabled: true
+
+  # Anthropic Claude
+  - id: anthropic-claude
+    name: Anthropic Claude 3
+    type: anthropic
+    endpoint: https://api.anthropic.com/v1
+    api_key: ${ANTHROPIC_API_KEY}  # Set via environment variable
+    model: claude-3-opus-20240229
+    enabled: true
+
+  # Local Ollama instance (self-hosted, no API key needed)
+  - id: ollama-local
+    name: Local Ollama
+    type: local
+    endpoint: http://localhost:11434/v1
+    api_key: ""  # No key needed for local
+    model: llama2
+    enabled: true
+
+  # vLLM local server
+  - id: vllm-local
+    name: vLLM Local Server
+    type: local
+    endpoint: http://localhost:8000/v1
+    api_key: ""
+    model: meta-llama/Llama-2-70b-hf
+    enabled: false  # Disabled by default
+
+  # Custom provider example
+  - id: custom-provider
+    name: Custom LLM Provider
+    type: custom
+    endpoint: https://your-custom-endpoint.com/v1
+    api_key: ${CUSTOM_API_KEY}
+    model: custom-model-name
+    enabled: false
+
+# Worker pool configuration
+worker_pool:
+  max_workers: 10  # Maximum number of concurrent workers
+  default_provider: openai-gpt4  # Default provider if none specified
+  task_timeout: 300s  # 5 minutes
+  retry_attempts: 3
+  retry_delay: 5s
+
+# Agent configurations
+# Pre-configured agents with specific personas and providers
+agents:
+  - name: code-reviewer-1
+    persona: examples/code-reviewer
+    provider: openai-gpt4
+    auto_start: true  # Start automatically on system startup
+
+  - name: decision-maker-1
+    persona: examples/decision-maker
+    provider: anthropic-claude
+    auto_start: true
+
+  - name: housekeeping-bot-1
+    persona: examples/housekeeping-bot
+    provider: openai-gpt35  # Use faster/cheaper model
+    auto_start: true
+
+  - name: local-reviewer
+    persona: examples/code-reviewer
+    provider: ollama-local  # Use local model
+    auto_start: false  # Manual start only
+
+# Example usage scenarios:
+#
+# 1. Using only OpenAI:
+#    - Enable: openai-gpt4, openai-gpt35
+#    - Set OPENAI_API_KEY environment variable
+#
+# 2. Using only local models (no API keys):
+#    - Enable: ollama-local, vllm-local
+#    - Start Ollama: ollama serve
+#    - Start vLLM: python -m vllm.entrypoints.openai.api_server
+#
+# 3. Hybrid setup (cloud + local):
+#    - Enable: openai-gpt4, ollama-local
+#    - Use GPT-4 for complex tasks
+#    - Use Ollama for simpler/frequent tasks
+#
+# 4. Multi-provider redundancy:
+#    - Enable: openai-gpt4, anthropic-claude
+#    - System can fallback if one provider is unavailable

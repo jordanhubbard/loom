@@ -23,6 +23,7 @@ type Config struct {
 	Security    SecurityConfig    `yaml:"security" json:"security,omitempty"`
 	Projects    []ProjectConfig   `yaml:"projects" json:"projects,omitempty"`
 	WebUI       WebUIConfig       `yaml:"web_ui" json:"web_ui,omitempty"`
+	Temporal    TemporalConfig    `yaml:"temporal" json:"temporal,omitempty"`
 	
 	// JSON/User-specific configuration fields
 	Providers   []Provider        `yaml:"providers,omitempty" json:"providers"`
