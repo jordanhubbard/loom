@@ -11,7 +11,7 @@ import (
 // Storage provides in-memory storage for the arbiter service
 type Storage struct {
 	works          map[string]*models.Work
-	agents         map[string]*models.Agent
+	agents         map[string]*models.WorkAgent
 	communications []models.AgentCommunication
 	services       map[string]*models.ServiceEndpoint
 	traffic        map[string][]models.Traffic
@@ -22,7 +22,7 @@ type Storage struct {
 func New() *Storage {
 	s := &Storage{
 		works:          make(map[string]*models.Work),
-		agents:         make(map[string]*models.Agent),
+		agents:         make(map[string]*models.WorkAgent),
 		communications: make([]models.AgentCommunication, 0),
 		services:       make(map[string]*models.ServiceEndpoint),
 		traffic:        make(map[string][]models.Traffic),
@@ -147,7 +147,7 @@ func (s *Storage) UpdateWork(work *models.Work) error {
 
 // Agent operations
 
-func (s *Storage) CreateAgent(agent *models.Agent) error {
+func (s *Storage) CreateAgent(agent *models.WorkAgent) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	
@@ -159,7 +159,7 @@ func (s *Storage) CreateAgent(agent *models.Agent) error {
 	return nil
 }
 
-func (s *Storage) GetAgent(id string) (*models.Agent, error) {
+func (s *Storage) GetAgent(id string) (*models.WorkAgent, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	
@@ -171,11 +171,11 @@ func (s *Storage) GetAgent(id string) (*models.Agent, error) {
 	return agent, nil
 }
 
-func (s *Storage) ListAgents() []*models.Agent {
+func (s *Storage) ListAgents() []*models.WorkAgent {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	
-	agents := make([]*models.Agent, 0, len(s.agents))
+	agents := make([]*models.WorkAgent, 0, len(s.agents))
 	for _, agent := range s.agents {
 		agents = append(agents, agent)
 	}

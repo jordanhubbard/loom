@@ -1,9 +1,13 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/jordanhubbard/arbiter/pkg/secrets"
 	"gopkg.in/yaml.v3"
 )
 
@@ -136,13 +140,7 @@ func DefaultConfig() *Config {
 			RefreshInterval: 5,
 		},
 	}
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-
-	"github.com/jordanhubbard/arbiter/pkg/secrets"
-)
+}
 
 const (
 	configFileName = ".arbiter.json"
