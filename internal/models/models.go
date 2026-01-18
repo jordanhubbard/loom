@@ -23,16 +23,6 @@ type Work struct {
 	Result      string     `json:"result,omitempty"`
 }
 
-// Agent represents an AI agent in the system
-type Agent struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Status      string    `json:"status"` // active, idle, busy
-	CurrentWork string    `json:"current_work,omitempty"`
-	ServiceID   string    `json:"service_id"` // Which service endpoint this agent uses
-	CreatedAt   time.Time `json:"created_at"`
-}
-
 // AgentCommunication represents communication between two agents
 type AgentCommunication struct {
 	ID        string    `json:"id"`

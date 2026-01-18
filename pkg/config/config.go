@@ -1,21 +1,28 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/jordanhubbard/arbiter/pkg/secrets"
 	"gopkg.in/yaml.v3"
 )
 
 // Config represents the main configuration for the arbiter system
 type Config struct {
-	Server      ServerConfig      `yaml:"server"`
-	Database    DatabaseConfig    `yaml:"database"`
-	Beads       BeadsConfig       `yaml:"beads"`
-	Agents      AgentsConfig      `yaml:"agents"`
-	Security    SecurityConfig    `yaml:"security"`
-	Projects    []ProjectConfig   `yaml:"projects"`
-	WebUI       WebUIConfig       `yaml:"web_ui"`
+	Server      ServerConfig      `yaml:"server" json:"server,omitempty"`
+	Database    DatabaseConfig    `yaml:"database" json:"database,omitempty"`
+	Beads       BeadsConfig       `yaml:"beads" json:"beads,omitempty"`
+	Agents      AgentsConfig      `yaml:"agents" json:"agents,omitempty"`
+	Security    SecurityConfig    `yaml:"security" json:"security,omitempty"`
+	Projects    []ProjectConfig   `yaml:"projects" json:"projects,omitempty"`
+	WebUI       WebUIConfig       `yaml:"web_ui" json:"web_ui,omitempty"`
+	Providers   []Provider        `json:"providers"`
+	ServerPort  int               `json:"server_port"`
+	SecretStore *secrets.Store    `json:"-"`
 }
 
 // ServerConfig configures the HTTP/HTTPS server
@@ -81,8 +88,8 @@ type WebUIConfig struct {
 	RefreshInterval int    `yaml:"refresh_interval"` // seconds
 }
 
-// LoadConfig loads configuration from a YAML file
-func LoadConfig(path string) (*Config, error) {
+// LoadConfigFromFile loads configuration from a YAML file
+func LoadConfigFromFile(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -94,6 +101,32 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+// LoadConfig loads configuration from the default config file
+func LoadConfig() (*Config, error) {
+	configPath, err := getConfigPath()
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+
+	// Initialize secret store
+	cfg.SecretStore = secrets.NewStore()
+	if err := cfg.SecretStore.Load(); err != nil {
+		return nil, fmt.Errorf("failed to load secrets: %w", err)
+	}
+
+	return &cfg, nil
 }
 
 // DefaultConfig returns a default configuration
@@ -136,13 +169,7 @@ func DefaultConfig() *Config {
 			RefreshInterval: 5,
 		},
 	}
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-
-	"github.com/jordanhubbard/arbiter/pkg/secrets"
-)
+}
 
 const (
 	configFileName = ".arbiter.json"
@@ -154,13 +181,6 @@ type Provider struct {
 	Endpoint string `json:"endpoint"`
 }
 
-// Config holds the application configuration
-type Config struct {
-	Providers   []Provider     `json:"providers"`
-	ServerPort  int            `json:"server_port"`
-	SecretStore *secrets.Store `json:"-"`
-}
-
 // NewConfig creates a new configuration with default values
 func NewConfig() *Config {
 	return &Config{
@@ -168,32 +188,6 @@ func NewConfig() *Config {
 		ServerPort:  8080,
 		SecretStore: secrets.NewStore(),
 	}
-}
-
-// LoadConfig loads configuration from the config file
-func LoadConfig() (*Config, error) {
-	configPath, err := getConfigPath()
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var cfg Config
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, err
-	}
-
-	// Initialize secret store
-	cfg.SecretStore = secrets.NewStore()
-	if err := cfg.SecretStore.Load(); err != nil {
-		return nil, fmt.Errorf("failed to load secrets: %w", err)
-	}
-
-	return &cfg, nil
 }
 
 // SaveConfig saves configuration to the config file
