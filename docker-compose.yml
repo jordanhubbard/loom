@@ -1,6 +1,72 @@
 version: '3.8'
 
 services:
+  # PostgreSQL database for Temporal
+  temporal-postgresql:
+    image: postgres:15-alpine
+    container_name: temporal-postgresql
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    networks:
+      - arbiter-network
+    volumes:
+      - temporal-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Temporal server with auto-setup
+  temporal:
+    image: temporalio/auto-setup:1.22.4
+    container_name: temporal
+    restart: unless-stopped
+    depends_on:
+      temporal-postgresql:
+        condition: service_healthy
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=temporal-postgresql
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+      - ENABLE_ES=false
+      - ES_SEEDS=
+      - ES_VERSION=
+    ports:
+      - "7233:7233"  # gRPC port
+    networks:
+      - arbiter-network
+    volumes:
+      - ./config/temporal:/etc/temporal/config/dynamicconfig
+    healthcheck:
+      test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Temporal Web UI
+  temporal-ui:
+    image: temporalio/ui:2.21.3
+    container_name: temporal-ui
+    restart: unless-stopped
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "8088:8080"  # Temporal UI on different port to avoid conflict with arbiter
+    networks:
+      - arbiter-network
+
   arbiter:
     build:
       context: .
@@ -8,10 +74,15 @@ services:
     image: arbiter:latest
     container_name: arbiter
     restart: unless-stopped
+    depends_on:
+      temporal:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
       - TZ=UTC
+      - TEMPORAL_HOST=temporal:7233
+      - TEMPORAL_NAMESPACE=arbiter-default
     networks:
       - arbiter-network
     volumes:
@@ -27,3 +98,6 @@ services:
 networks:
   arbiter-network:
     driver: bridge
+
+volumes:
+  temporal-db-data:

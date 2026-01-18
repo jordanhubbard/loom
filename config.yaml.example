@@ -37,6 +37,15 @@ security:
   # api_keys:
   #   - "your-api-key-here"
 
+temporal:
+  host: localhost:7233
+  namespace: arbiter-default
+  task_queue: arbiter-tasks
+  workflow_execution_timeout: 24h
+  workflow_task_timeout: 10s
+  enable_event_bus: true
+  event_buffer_size: 1000
+
 projects:
   - id: arbiter-self
     name: Arbiter Self-Improvement

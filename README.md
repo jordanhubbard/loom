@@ -1,339 +1,229 @@
 # Arbiter
 
-An agentic based coding orchestrator for both on-prem and off-prem development.
+An agentic-based coding orchestrator for both on-prem and off-prem development.
+
+Arbiter is a lightweight AI coding agent orchestration system that manages workflows, handles agent lifecycle, and provides real-time event streaming for monitoring and coordination.
+
+## Features
+
+- 🤖 **Agent Orchestration**: Spawn and manage AI agents with different personas
+- 🔄 **Workflow Management**: Temporal-based workflow orchestration for reliable task execution
+- 📊 **Work Graph**: Track dependencies and relationships between work items (beads)
+- 🔐 **Decision Framework**: Approval workflows for agent decisions
+- 📡 **Real-time Events**: Server-Sent Events (SSE) for live status updates
+- 🎯 **Smart Routing**: Intelligent task assignment and agent coordination
+- 🔒 **Secure**: Encrypted secret storage and secure credential management
 
 ## Architecture
 
 Arbiter is built with the following principles:
 
-- **Go-First Implementation**: All primary functionality is implemented in Go for performance, maintainability, and minimal host footprint
-- **Containerized Everything**: Every component runs in containers with no exceptions, ensuring consistency across environments
-- **Minimal Language Footprint**: While other languages (Python, shell scripts) can be used when more appropriate, we exercise caution to minimize the number of languages and dependencies on the host system
+- **Go-First Implementation**: All primary functionality is implemented in Go for performance and maintainability
+- **Containerized Everything**: Every component runs in containers for consistency across environments
+- **Temporal Workflows**: Reliable, durable workflow orchestration using Temporal
+- **Event-Driven**: Real-time event bus for agent communication and UI updates
 
 ## Prerequisites
 
 - Docker (20.10+)
 - Docker Compose (1.29+)
-- Go 1.21+ (for local development only)
+- Go 1.24+ (for local development only)
 - Make (optional, for convenience commands)
 
 ## Quick Start
 
 ### Running with Docker (Recommended)
 
-```bash
-# Build and run using docker-compose
-make docker-run
+The Docker setup includes:
+- Arbiter application server (port 8080)
+- Temporal server (port 7233)
+- Temporal UI (port 8088)
+- PostgreSQL database for Temporal
 
-# Or manually
+```bash
+# Build and run all services using docker-compose
 docker-compose up -d
 
 # View logs
 docker-compose logs -f arbiter
 
-# Stop the service
-make docker-stop
+# View Temporal UI
+open http://localhost:8088
+
+# Stop all services
+docker-compose down
 ```
 
-### Building the Docker Image
+### Using Make Commands
 
 ```bash
+# Build and run
+make docker-run
+
+# Build Docker image
 make docker-build
 
-# Or manually
-docker build -t arbiter:latest .
+# Stop services
+make docker-stop
+
+# Clean Docker resources
+make docker-clean
 ```
 
-### Local Development
+## Temporal Workflow Engine
 
-For local development without Docker:
+Arbiter uses [Temporal](https://temporal.io) for reliable workflow orchestration. Temporal provides:
 
-```bash
-# Build the binary
-make build
+- **Durable Execution**: Workflows survive crashes and restarts
+- **Event History**: Complete audit trail of all workflow executions
+- **Signals & Queries**: Real-time workflow interaction
+- **Timeout Management**: Automatic handling of long-running operations
 
-# Run the application
-make run
+### Temporal Components
 
-# Run tests
-make test
+The system includes:
 
-# Run linters
-make lint
+1. **Temporal Server**: Core workflow engine (port 7233)
+2. **Temporal UI**: Web interface for monitoring workflows (port 8088)
+3. **PostgreSQL**: Persistence layer for workflow state
+4. **Temporal Worker**: Executes workflow and activity code
+
+### Workflows
+
+Arbiter implements several key workflows:
+
+#### Agent Lifecycle Workflow
+Manages the complete lifecycle of an agent from spawn to shutdown:
+- Tracks agent status (spawned, working, idle, shutdown)
+- Handles bead assignments
+- Responds to queries for current status
+- Gracefully shuts down on signal
+
+#### Bead Processing Workflow
+Manages work item (bead) lifecycle:
+- Tracks status transitions (open, in_progress, blocked, closed)
+- Handles agent assignments
+- Manages dependencies and blockers
+- Provides status queries
+
+#### Decision Workflow
+Handles approval workflows with timeout:
+- Creates decision points for agent questions
+- Waits for human or agent approval
+- 48-hour default timeout
+- Unblocks dependent work on resolution
+
+### Event Bus
+
+The Temporal-based event bus provides real-time updates:
+
 ```
-
-## Usage
-
-Once running, Arbiter provides an orchestration service for coding tasks:
-
-```bash
-# Check version
-docker exec arbiter /app/arbiter version
-
-# Get help
-docker exec arbiter /app/arbiter help
+Event Types:
+- agent.spawned        - New agent created
+- agent.status_change  - Agent status updated
+- agent.completed      - Agent finished work
+- bead.created         - New work item created
+- bead.assigned        - Work assigned to agent
+- bead.status_change   - Work status updated
+- bead.completed       - Work item finished
+- decision.created     - Decision point created
+- decision.resolved    - Decision made
+- log.message          - System log message
 ```
-
-## Project Structure
-
-```
-arbiter/
-├── cmd/
-│   └── arbiter/          # Main application entry point
-│       └── main.go
-├── Dockerfile            # Multi-stage Docker build
-├── docker-compose.yml    # Container orchestration
-├── Makefile             # Development convenience commands
-├── go.mod               # Go module definition
-└── README.md            # This file
-```
-
-## Development Guidelines
-
-1. **Primary Language**: Implement all core functionality in Go
-2. **Containerization**: All services, tools, and components must run in containers
-3. **Additional Languages**: Only use Python or shell scripts when they provide clear advantages, and document the rationale
-4. **Security**: Run containers as non-root users, use multi-stage builds to minimize image size
-5. **Testing**: All code should be tested; use Go's built-in testing framework
-
-## Contributing
-
-When contributing to this project:
-
-1. Ensure all code follows the architecture principles above
-2. All new features must be containerized
-3. Update documentation for any new features or changes
-4. Run tests and linters before submitting changes
-An AI Coding Agent Orchestrator for both on-prem and off-prem development.
-
-Arbiter is a lightweight AI coding agent orchestrator, dispatcher, and automatic decision maker. Instead of being just another frontend to systems like Claude or Cursor, Arbiter intelligently routes requests to multiple AI providers and presents a unified OpenAI-compatible API.
-
-## Features
-
-- 🤖 **Multi-Provider Support**: Configure and use multiple AI providers (Claude, OpenAI, Cursor, Factory, and more)
-- 🔒 **Secure Secret Storage**: API keys are encrypted and stored securely, never committed to git
-- 🌐 **Dual Interface**: Both OpenAI-compatible REST API and web frontend
-- 🔍 **Automatic Provider Discovery**: Looks up API endpoints for known providers or accepts custom URLs
-- ⚡ **Lightweight**: Minimal overhead, runs as a background service
-- 🎯 **Smart Routing**: Automatically routes requests to appropriate providers
-
-## Installation
-
-### Prerequisites
-
-- Go 1.21 or higher (tested with Go 1.24)
-
-### Build from Source
-
-```bash
-git clone https://github.com/jordanhubbard/arbiter.git
-cd arbiter
-go build
-```
-
-This will create an `arbiter` binary in the current directory.
-
-## Quick Start
-
-1. **Run Arbiter**:
-   ```bash
-   ./arbiter
-   ```
-
-2. **First-time Setup**: On first run, Arbiter will interactively guide you through configuring your AI providers:
-   - Enter the names of providers you have access to (e.g., `claude, openai, cursor`)
-   - For each provider, either:
-     - Provide a specific API endpoint URL, or
-     - Let Arbiter look up the standard endpoint for known providers
-   - Enter your API key for each provider
-
-3. **Access the Interfaces**:
-   - **Web UI**: http://localhost:8080
-   - **OpenAI-compatible API**: http://localhost:8080/v1/...
-   - **Health Check**: http://localhost:8080/health
-
-## Configuration
-
-Arbiter stores configuration in two files in your home directory:
-
-- `~/.arbiter.json`: Provider configurations (endpoints, names)
-- `~/.arbiter_secrets`: Encrypted API keys (machine-specific encryption)
-
-**Security Note**: These files are never committed to git. The secrets file uses AES-GCM encryption with a machine-specific key derived from hostname and user directory.
 
 ## API Endpoints
 
-Arbiter provides an OpenAI-compatible API:
-
-### Chat Completions
-```bash
-POST /v1/chat/completions
-Content-Type: application/json
-
-{
-  "model": "claude-default",
-  "messages": [
-    {"role": "user", "content": "Hello!"}
-  ]
-}
-```
-
-### Text Completions
-```bash
-POST /v1/completions
-Content-Type: application/json
-
-{
-  "model": "openai-default",
-  "prompt": "Once upon a time"
-}
-```
-
-### List Models
-```bash
-GET /v1/models
-```
-
-### Health Check
-```bash
-GET /health
-```
-
-### List Providers
-```bash
-GET /api/providers
-```
-
-## Usage Examples
-
-### Using with curl
+### Core Resources
 
 ```bash
-# Chat completion
-curl -X POST http://localhost:8080/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-default",
-    "messages": [{"role": "user", "content": "Write a haiku about coding"}]
-  }'
+# Health check
+GET /api/v1/health
 
-# Check health
-curl http://localhost:8080/health
+# Agents
+GET    /api/v1/agents
+POST   /api/v1/agents
+GET    /api/v1/agents/{id}
+
+# Beads (work items)
+GET    /api/v1/beads
+POST   /api/v1/beads
+GET    /api/v1/beads/{id}
+PUT    /api/v1/beads/{id}
+
+# Decisions
+GET    /api/v1/decisions
+POST   /api/v1/decisions
+PUT    /api/v1/decisions/{id}
+
+# Projects
+GET    /api/v1/projects
+GET    /api/v1/projects/{id}
+
+# Work Graph
+GET    /api/v1/work-graph?project_id={id}
 ```
 
-### Using with Python OpenAI Client
+### Event Streaming (NEW)
 
-```python
-from openai import OpenAI
-
-# Point the client to Arbiter
-client = OpenAI(
-    base_url="http://localhost:8080/v1",
-    api_key="not-needed"  # Arbiter manages keys
-)
-
-response = client.chat.completions.create(
-    model="claude-default",
-    messages=[{"role": "user", "content": "Hello!"}]
-)
-
-print(response.choices[0].message.content)
-```
-
-## Supported Providers
-
-Arbiter has built-in support for the following providers with automatic endpoint lookup:
-
-- **Claude** (Anthropic): `https://api.anthropic.com/v1`
-- **OpenAI**: `https://api.openai.com/v1`
-- **Cursor**: `https://api.cursor.sh/v1`
-- **Factory**: `https://api.factory.ai/v1`
-- **Cohere**: `https://api.cohere.ai/v1`
-- **HuggingFace**: `https://api-inference.huggingface.co`
-- **Replicate**: `https://api.replicate.com/v1`
-- **Together**: `https://api.together.xyz/v1`
-- **Mistral**: `https://api.mistral.ai/v1`
-- **Perplexity**: `https://api.perplexity.ai`
-
-For any other provider, you can manually specify the API endpoint during setup.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────┐
-│           User Application              │
-│  (CLI, IDE Plugin, Web Client, etc.)    │
-└───────────────┬─────────────────────────┘
-                │
-                │ OpenAI-compatible API
-                │
-┌───────────────▼─────────────────────────┐
-│           Arbiter Server                │
-│  ┌─────────────────────────────────┐   │
-│  │  Request Router & Dispatcher    │   │
-│  └─────────────────────────────────┘   │
-│  ┌─────────────────────────────────┐   │
-│  │    Encrypted Secret Store       │   │
-│  └─────────────────────────────────┘   │
-└───────────────┬─────────────────────────┘
-                │
-        ┌───────┴───────┬─────────┐
-        │               │         │
-┌───────▼──────┐ ┌──────▼─────┐ ┌▼────────┐
-│   Claude     │ │   OpenAI   │ │ Cursor  │
-│   Provider   │ │  Provider  │ │ Provider│
-└──────────────┘ └────────────┘ └─────────┘
-```
-
-## Development
-
-### Building
+Real-time event streaming via Server-Sent Events:
 
 ```bash
-go build
+# Stream all events
+GET /api/v1/events/stream
+
+# Stream events for specific project
+GET /api/v1/events/stream?project_id=example-project
+
+# Stream specific event types
+GET /api/v1/events/stream?type=agent.spawned
+
+# Get event statistics
+GET /api/v1/events/stats
 ```
 
-### Running
-
+Example: Subscribe to events using curl:
 ```bash
-./arbiter
+curl -N http://localhost:8080/api/v1/events/stream
 ```
 
-### Project Structure
+Example: Subscribe to events using JavaScript:
+```javascript
+const eventSource = new EventSource('http://localhost:8080/api/v1/events/stream?project_id=my-project');
 
-```
-arbiter/
-├── main.go                    # Application entry point
-├── pkg/
-│   ├── config/
-│   │   └── config.go         # Configuration management
-│   ├── secrets/
-│   │   └── store.go          # Encrypted secret storage
-│   └── server/
-│       ├── server.go         # HTTP server implementation
-│       └── types.go          # API types
-├── go.mod                     # Go module definition
-├── README.md                  # This file
-└── .gitignore                # Git ignore rules
+eventSource.addEventListener('agent.spawned', (e) => {
+  const data = JSON.parse(e.data);
+  console.log('Agent spawned:', data);
+});
+
+eventSource.addEventListener('bead.created', (e) => {
+  const data = JSON.parse(e.data);
+  console.log('Bead created:', data);
+});
 ```
 
-## Security Considerations
+## Configuration
 
-- API keys are encrypted using AES-GCM with a 256-bit key
-- Encryption key is derived from machine-specific data (hostname + home directory)
-- Secrets file has restricted permissions (0600)
-- Configuration and secrets are stored in home directory, never in repository
-- No secrets are logged or exposed in API responses
+Configuration is managed via `config.yaml`:
 
-## Contributing
+```yaml
+server:
+  http_port: 8080
+  enable_http: true
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+temporal:
+  host: localhost:7233              # Temporal server address
+  namespace: arbiter-default        # Temporal namespace
+  task_queue: arbiter-tasks         # Task queue name
+  workflow_execution_timeout: 24h   # Max workflow duration
+  workflow_task_timeout: 10s        # Workflow task timeout
+  enable_event_bus: true            # Enable event bus
+  event_buffer_size: 1000           # Event buffer size
 
-## License
-
-See LICENSE file for details.
-
-## Roadmap
+agents:
+  max_concurrent: 10
+  default_persona_path: ./personas
+  heartbeat_interval: 30s
+  file_lock_timeout: 10m
 
 - [x] Project state management (open, closed, reopened)
 - [x] Project comments and closure workflow
@@ -406,239 +296,182 @@ See `personas/arbiter/` for the complete persona definition.
 
 ## Support
 
-For issues, questions, or contributions, please use the GitHub issue tracker.
-# arbiter
-An agentic based coding orchestrator for both on-prem and off-prem development
+## Local Development
 
-Arbiter is a web-based service that helps orchestrate and monitor AI agents working on coding tasks. It provides:
-- Work queue management for tracking tasks
-- Agent communication monitoring
-- Service endpoint tracking with cost analysis
-- Priority-based routing that favors fixed-cost (self-hosted) services
+### Building Locally
 
-## Features
-
-### Work Management
-- Submit new work items via REST API
-- Track work in progress
-- Monitor work status and assignments
-
-### Agent Monitoring
-- View active agents and their status
-- Monitor inter-agent communications
-- Track which service endpoints agents are using
-
-### Service Endpoints
-- Track multiple LLM service endpoints (OpenAI, Anthropic, Ollama, vLLM, etc.)
-- Monitor token usage and costs
-- Prioritize fixed-cost self-hosted services (Ollama, vLLM)
-- Interactive cost management UI
-- Real-time traffic monitoring
-
-### Cost Tracking
-- **Fixed-cost services**: Mark self-hosted services (Ollama, vLLM) as fixed-cost
-- **Variable-cost services**: Track per-token costs for paid APIs
-- **Automatic prioritization**: System prioritizes fixed-cost services to minimize expenses
-- **Interactive cost editing**: Click on any service in the UI to update its cost model
-
-## Getting Started
-
-### Prerequisites
-- Go 1.21 or higher
-
-### Installation
-
-1. Clone the repository:
 ```bash
-git clone https://github.com/jordanhubbard/arbiter.git
-cd arbiter
-```
-
-2. Install dependencies:
-```bash
+# Install dependencies
 go mod download
-```
 
-3. Build the application:
-```bash
+# Build the binary
 go build -o arbiter ./cmd/arbiter
-```
 
-4. Run the server:
-```bash
+# Run the application
 ./arbiter
 ```
 
-The server will start on port 8080 by default. You can change this by setting the `PORT` environment variable:
-```bash
-PORT=3000 ./arbiter
-```
-
-### Web UI
-
-Once the server is running, open your browser to:
-- **Dashboard**: http://localhost:8080
-- **API**: http://localhost:8080/api
-
-## API Reference
-
-### Work Endpoints
-
-#### Create Work
-```http
-POST /api/work/create
-Content-Type: application/json
-
-{
-  "description": "Implement new feature X"
-}
-```
-
-#### List All Work
-```http
-GET /api/work
-```
-
-#### List Work In Progress
-```http
-GET /api/work?status=in_progress
-```
-
-### Agent Endpoints
-
-#### List Agents and Communications
-```http
-GET /api/agents
-```
-
-Returns:
-```json
-{
-  "agents": [...],
-  "communications": [...]
-}
-```
-
-### Service Endpoints
-
-#### List All Services
-```http
-GET /api/services
-```
-
-#### List Active Services Only
-```http
-GET /api/services?active=true
-```
-
-#### Get Preferred Services (Fixed-cost first)
-```http
-GET /api/services/preferred
-```
-
-#### Get Service Costs
-```http
-GET /api/services/:id/costs
-```
-
-#### Update Service Costs
-```http
-PUT /api/services/:id/costs
-Content-Type: application/json
-
-{
-  "cost_type": "fixed",
-  "fixed_cost": 0
-}
-```
-
-Or for variable cost:
-```json
-{
-  "cost_type": "variable",
-  "cost_per_token": 0.00003
-}
-```
-
-#### Record Service Usage (for simulation/testing)
-```http
-POST /api/services/:id/usage
-Content-Type: application/json
-
-{
-  "tokens_used": 1000
-}
-```
-
-## Development
-
 ### Running Tests
+
 ```bash
+# Run all tests
 go test ./...
+
+# Run tests with coverage
+go test -v -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+
+# Run specific package tests
+go test ./internal/temporal/...
 ```
 
-### Running with Verbose Test Output
+### Development with Temporal
+
+For local development with Temporal:
+
+1. Start Temporal server:
 ```bash
-go test ./... -v
+docker-compose up -d temporal temporal-postgresql temporal-ui
 ```
 
-### Project Structure
+2. Build and run arbiter locally:
+```bash
+go build -o arbiter ./cmd/arbiter
+./arbiter
+```
+
+3. Access Temporal UI:
+```bash
+open http://localhost:8088
+```
+
+## Project Structure
+
 ```
 arbiter/
-├── cmd/arbiter/          # Main application
-│   ├── main.go          # Entry point
-│   └── web/             # Web UI files
-│       ├── index.html   # Dashboard UI
-│       ├── style.css    # Styles
-│       └── app.js       # Frontend JavaScript
+├── cmd/arbiter/              # Main application entry point
+│   └── main.go
 ├── internal/
-│   ├── api/             # HTTP handlers
-│   ├── models/          # Data models
-│   └── storage/         # In-memory storage
-├── go.mod
-└── README.md
+│   ├── agent/               # Agent management
+│   ├── arbiter/             # Core orchestrator
+│   ├── beads/               # Work item management
+│   ├── decision/            # Decision framework
+│   ├── temporal/            # Temporal integration
+│   │   ├── client/          # Temporal client wrapper
+│   │   ├── workflows/       # Workflow definitions
+│   │   ├── activities/      # Activity implementations
+│   │   ├── eventbus/        # Event bus implementation
+│   │   └── manager.go       # Temporal manager
+│   ├── api/                 # HTTP API handlers
+│   └── models/              # Data models
+├── pkg/
+│   ├── config/              # Configuration management
+│   └── models/              # Shared models
+├── config/
+│   └── temporal/            # Temporal configuration
+├── docker-compose.yml       # Container orchestration
+├── Dockerfile              # Multi-stage Docker build
+├── config.yaml.example     # Example configuration
+└── README.md              # This file
 ```
 
-## Service Priority System
+## Monitoring
 
-The arbiter automatically prioritizes services based on their cost model:
+### Temporal UI
 
-1. **Fixed-cost services** (e.g., self-hosted Ollama/vLLM): Highest priority
-   - Zero or fixed monthly cost
-   - Marked as "fixed" cost type
-   - Always preferred when available
+Access the Temporal UI at http://localhost:8088 to:
+- View workflow executions
+- Inspect workflow history
+- Monitor active workflows
+- Debug workflow failures
+- Query workflow state
 
-2. **Variable-cost services** (e.g., OpenAI, Anthropic): Lower priority
-   - Pay-per-token pricing
-   - Marked as "variable" cost type
-   - Used when fixed-cost services are unavailable or overloaded
+### Event Stream Monitoring
 
-The `/api/services/preferred` endpoint returns services in priority order, allowing agents to select the most cost-effective service first.
+Monitor real-time events:
+```bash
+# Watch all events
+curl -N http://localhost:8080/api/v1/events/stream
 
-## Web UI Features
+# Monitor specific project
+curl -N "http://localhost:8080/api/v1/events/stream?project_id=my-project"
+```
 
-### Dashboard
-- Create new work items
-- View work in progress
-- Monitor active agents
-- See agent communications
-- Manage service endpoints
+### Logs
 
-### Service Management
-- View all services or filter by active status
-- See preferred service order (fixed-cost first)
-- Click any service to edit its cost model
-- Real-time token usage and cost tracking
-- Visual indicators for service status and cost type
+View service logs:
+```bash
+# All services
+docker-compose logs -f
 
-### Cost Editing
-Click on any service in the dashboard to:
-- Switch between fixed and variable cost models
-- Set fixed cost amounts
-- Configure per-token pricing
-- Update cost models on the fly
+# Specific service
+docker-compose logs -f arbiter
+docker-compose logs -f temporal
+```
+
+## Troubleshooting
+
+### Temporal Connection Issues
+
+If arbiter can't connect to Temporal:
+
+1. Check Temporal is running:
+```bash
+docker-compose ps temporal
+```
+
+2. Check Temporal logs:
+```bash
+docker-compose logs temporal
+```
+
+3. Verify connectivity:
+```bash
+docker exec arbiter nc -zv temporal 7233
+```
+
+### Workflow Not Starting
+
+If workflows aren't starting:
+
+1. Check worker is running:
+```bash
+docker-compose logs arbiter | grep "Temporal worker"
+```
+
+2. Verify task queue in Temporal UI
+3. Check workflow registration in logs
+
+### Event Stream Not Working
+
+If event stream endpoint returns errors:
+
+1. Verify Temporal is enabled in config
+2. Check event bus initialization:
+```bash
+docker-compose logs arbiter | grep "event bus"
+```
+
+## Development Guidelines
+
+1. **Primary Language**: Implement all core functionality in Go
+2. **Containerization**: All services must run in containers
+3. **Workflows**: Use Temporal workflows for long-running operations
+4. **Events**: Publish events for all state changes
+5. **Testing**: Write tests for workflows and activities
+6. **Documentation**: Update docs for new features
+
+## Contributing
+
+When contributing to this project:
+
+1. Ensure all code follows the architecture principles
+2. All new features must be containerized
+3. Write Temporal workflows for async operations
+4. Add appropriate event publishing
+5. Update documentation
+6. Run tests and linters before submitting
 
 ## License
 
 See LICENSE file for details.
-

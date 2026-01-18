@@ -77,6 +77,12 @@ func (s *Server) SetupRoutes() http.Handler {
 	// Work graph
 	mux.HandleFunc("/api/v1/work-graph", s.handleWorkGraph)
 
+	// Events (real-time updates and event bus)
+	mux.HandleFunc("/api/v1/events/stream", s.handleEventStream)
+	mux.HandleFunc("/api/v1/events/stats", s.handleGetEventStats)
+	mux.HandleFunc("/api/v1/events", s.handleGetEvents)      // GET for history
+	// POST /api/v1/events for publishing is available but should be restricted
+
 	// Apply middleware
 	handler := s.loggingMiddleware(mux)
 	handler = s.corsMiddleware(handler)

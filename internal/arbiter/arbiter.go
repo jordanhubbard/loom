@@ -10,6 +10,8 @@ import (
 	"github.com/jordanhubbard/arbiter/internal/decision"
 	"github.com/jordanhubbard/arbiter/internal/persona"
 	"github.com/jordanhubbard/arbiter/internal/project"
+	"github.com/jordanhubbard/arbiter/internal/temporal"
+	"github.com/jordanhubbard/arbiter/internal/temporal/eventbus"
 	"github.com/jordanhubbard/arbiter/pkg/config"
 	"github.com/jordanhubbard/arbiter/pkg/models"
 )
@@ -23,13 +25,24 @@ type Arbiter struct {
 	beadsManager    *beads.Manager
 	decisionManager *decision.Manager
 	fileLockManager *FileLockManager
+	temporalManager *temporal.Manager
 }
 
 // New creates a new Arbiter instance
-func New(cfg *config.Config) *Arbiter {
+func New(cfg *config.Config) (*Arbiter, error) {
 	personaPath := cfg.Agents.DefaultPersonaPath
 	if personaPath == "" {
 		personaPath = "./personas"
+	}
+	
+	// Initialize Temporal manager if configured
+	var temporalMgr *temporal.Manager
+	if cfg.Temporal.Host != "" {
+		var err error
+		temporalMgr, err = temporal.NewManager(&cfg.Temporal)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize temporal: %w", err)
+		}
 	}
 	
 	return &Arbiter{
@@ -40,7 +53,8 @@ func New(cfg *config.Config) *Arbiter {
 		beadsManager:    beads.NewManager(cfg.Beads.BDPath),
 		decisionManager: decision.NewManager(),
 		fileLockManager: NewFileLockManager(cfg.Agents.FileLockTimeout),
-	}
+		temporalManager: temporalMgr,
+	}, nil
 }
 
 // Initialize sets up the arbiter
@@ -62,7 +76,51 @@ func (a *Arbiter) Initialize(ctx context.Context) error {
 		return fmt.Errorf("failed to load projects: %w", err)
 	}
 
+	// Start Temporal worker if configured
+	if a.temporalManager != nil {
+		if err := a.temporalManager.Start(); err != nil {
+			return fmt.Errorf("failed to start temporal: %w", err)
+		}
+	}
+
 	return nil
+}
+
+// Shutdown gracefully shuts down the arbiter
+func (a *Arbiter) Shutdown() {
+	if a.temporalManager != nil {
+		a.temporalManager.Stop()
+	}
+}
+
+// GetTemporalManager returns the Temporal manager
+func (a *Arbiter) GetTemporalManager() *temporal.Manager {
+	return a.temporalManager
+}
+
+// GetAgentManager returns the agent manager
+func (a *Arbiter) GetAgentManager() *agent.Manager {
+	return a.agentManager
+}
+
+// GetProjectManager returns the project manager
+func (a *Arbiter) GetProjectManager() *project.Manager {
+	return a.projectManager
+}
+
+// GetPersonaManager returns the persona manager
+func (a *Arbiter) GetPersonaManager() *persona.Manager {
+	return a.personaManager
+}
+
+// GetBeadsManager returns the beads manager
+func (a *Arbiter) GetBeadsManager() *beads.Manager {
+	return a.beadsManager
+}
+
+// GetDecisionManager returns the decision manager
+func (a *Arbiter) GetDecisionManager() *decision.Manager {
+	return a.decisionManager
 }
 
 // SpawnAgent spawns a new agent with a given persona
@@ -87,6 +145,14 @@ func (a *Arbiter) SpawnAgent(ctx context.Context, name, personaName, projectID s
 	// Add agent to project
 	if err := a.projectManager.AddAgentToProject(projectID, agent.ID); err != nil {
 		return nil, fmt.Errorf("failed to add agent to project: %w", err)
+	}
+
+	// Start Temporal workflow for agent if Temporal is enabled
+	if a.temporalManager != nil {
+		if err := a.temporalManager.StartAgentWorkflow(ctx, agent.ID, projectID, personaName, name); err != nil {
+			// Log error but don't fail agent creation
+			fmt.Printf("Warning: failed to start agent workflow: %v\n", err)
+		}
 	}
 
 	return agent, nil
@@ -125,7 +191,30 @@ func (a *Arbiter) CreateBead(title, description string, priority models.BeadPrio
 		return nil, fmt.Errorf("project not found: %w", err)
 	}
 
-	return a.beadsManager.CreateBead(title, description, priority, beadType, projectID)
+	bead, err := a.beadsManager.CreateBead(title, description, priority, beadType, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Start Temporal workflow for bead if Temporal is enabled
+	if a.temporalManager != nil {
+		ctx := context.Background()
+		if err := a.temporalManager.StartBeadWorkflow(ctx, bead.ID, projectID, title, description, int(priority), beadType); err != nil {
+			// Log error but don't fail bead creation
+			fmt.Printf("Warning: failed to start bead workflow: %v\n", err)
+		}
+		
+		// Publish event
+		if eventBus := a.temporalManager.GetEventBus(); eventBus != nil {
+			eventBus.PublishBeadEvent("bead.created", bead.ID, projectID, map[string]interface{}{
+				"title":    title,
+				"type":     beadType,
+				"priority": priority,
+			})
+		}
+	}
+
+	return bead, nil
 }
 
 // CreateDecisionBead creates a decision bead when an agent needs a decision
@@ -145,6 +234,29 @@ func (a *Arbiter) CreateDecisionBead(question, parentBeadID, requesterID string,
 	if parentBeadID != "" {
 		if err := a.beadsManager.AddDependency(parentBeadID, decision.ID, "blocks"); err != nil {
 			return nil, fmt.Errorf("failed to add blocking dependency: %w", err)
+		}
+	}
+
+	// Start Temporal decision workflow if Temporal is enabled
+	if a.temporalManager != nil {
+		ctx := context.Background()
+		if err := a.temporalManager.StartDecisionWorkflow(ctx, decision.ID, projectID, question, requesterID, options); err != nil {
+			// Log error but don't fail decision creation
+			fmt.Printf("Warning: failed to start decision workflow: %v\n", err)
+		}
+		
+		// Publish event
+		if eventBus := a.temporalManager.GetEventBus(); eventBus != nil {
+			eventBus.Publish(&eventbus.Event{
+				Type:      "decision.created",
+				Source:    "decision-manager",
+				ProjectID: projectID,
+				Data: map[string]interface{}{
+					"decision_id":  decision.ID,
+					"question":     question,
+					"requester_id": requesterID,
+				},
+			})
 		}
 	}
 

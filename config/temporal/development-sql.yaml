@@ -1,0 +1,46 @@
+# Temporal dynamic configuration for development with SQL backend
+# This file configures Temporal server runtime behavior
+
+# Workflow execution limits
+limit.maxIDLength:
+  - value: 255
+    constraints: {}
+
+# History service configuration
+history.maxAutoResetPoints:
+  - value: 20
+    constraints: {}
+
+# Visibility configuration
+system.advancedVisibilityWritingMode:
+  - value: "off"
+    constraints: {}
+
+# Frontend service configuration  
+frontend.enableClientVersionCheck:
+  - value: false
+    constraints: {}
+
+# Matching service configuration
+matching.numTaskqueueReadPartitions:
+  - value: 4
+    constraints: {}
+
+matching.numTaskqueueWritePartitions:
+  - value: 4
+    constraints: {}
+
+# Worker service configuration
+worker.replicatorConcurrency:
+  - value: 1000
+    constraints: {}
+
+# Namespace settings
+system.enableNamespaceNotActiveAutoForwarding:
+  - value: true
+    constraints: {}
+
+# Retention settings (default 7 days for development)
+system.defaultWorkflowRetentionPeriod:
+  - value: "168h"
+    constraints: {}
