@@ -6,7 +6,8 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/jordanhubbard/arbiter/internal/models"
+	internalmodels "github.com/jordanhubbard/arbiter/internal/models"
+	"github.com/jordanhubbard/arbiter/pkg/models"
 )
 
 // Database represents the arbiter database
@@ -62,17 +63,16 @@ func (d *Database) initSchema() error {
 	CREATE TABLE IF NOT EXISTS agents (
 		id TEXT PRIMARY KEY,
 		name TEXT NOT NULL,
-		description TEXT,
-		provider_id TEXT NOT NULL,
-		status TEXT NOT NULL DEFAULT 'active',
-		config TEXT,
-		created_at DATETIME NOT NULL,
-		updated_at DATETIME NOT NULL,
-		FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
+		persona_name TEXT,
+		status TEXT NOT NULL DEFAULT 'idle',
+		current_bead TEXT,
+		project_id TEXT,
+		started_at DATETIME NOT NULL,
+		last_active DATETIME NOT NULL
 	);
 
-	CREATE INDEX IF NOT EXISTS idx_agents_provider_id ON agents(provider_id);
 	CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
+	CREATE INDEX IF NOT EXISTS idx_agents_project_id ON agents(project_id);
 	CREATE INDEX IF NOT EXISTS idx_providers_status ON providers(status);
 	`
 
@@ -84,7 +84,7 @@ func (d *Database) initSchema() error {
 }
 
 // CreateProvider creates a new provider
-func (d *Database) CreateProvider(provider *models.Provider) error {
+func (d *Database) CreateProvider(provider *internalmodels.Provider) error {
 	provider.CreatedAt = time.Now()
 	provider.UpdatedAt = time.Now()
 
@@ -114,14 +114,14 @@ func (d *Database) CreateProvider(provider *models.Provider) error {
 }
 
 // GetProvider retrieves a provider by ID
-func (d *Database) GetProvider(id string) (*models.Provider, error) {
+func (d *Database) GetProvider(id string) (*internalmodels.Provider, error) {
 	query := `
 		SELECT id, name, type, endpoint, description, requires_key, key_id, status, created_at, updated_at
 		FROM providers
 		WHERE id = ?
 	`
 
-	provider := &models.Provider{}
+	provider := &internalmodels.Provider{}
 	err := d.db.QueryRow(query, id).Scan(
 		&provider.ID,
 		&provider.Name,
@@ -146,7 +146,7 @@ func (d *Database) GetProvider(id string) (*models.Provider, error) {
 }
 
 // ListProviders retrieves all providers
-func (d *Database) ListProviders() ([]*models.Provider, error) {
+func (d *Database) ListProviders() ([]*internalmodels.Provider, error) {
 	query := `
 		SELECT id, name, type, endpoint, description, requires_key, key_id, status, created_at, updated_at
 		FROM providers
@@ -159,9 +159,9 @@ func (d *Database) ListProviders() ([]*models.Provider, error) {
 	}
 	defer rows.Close()
 
-	var providers []*models.Provider
+	var providers []*internalmodels.Provider
 	for rows.Next() {
-		provider := &models.Provider{}
+		provider := &internalmodels.Provider{}
 		err := rows.Scan(
 			&provider.ID,
 			&provider.Name,
@@ -184,7 +184,7 @@ func (d *Database) ListProviders() ([]*models.Provider, error) {
 }
 
 // UpdateProvider updates a provider
-func (d *Database) UpdateProvider(provider *models.Provider) error {
+func (d *Database) UpdateProvider(provider *internalmodels.Provider) error {
 	provider.UpdatedAt = time.Now()
 
 	query := `
@@ -244,23 +244,23 @@ func (d *Database) DeleteProvider(id string) error {
 
 // CreateAgent creates a new agent
 func (d *Database) CreateAgent(agent *models.Agent) error {
-	agent.CreatedAt = time.Now()
-	agent.UpdatedAt = time.Now()
+	agent.StartedAt = time.Now()
+	agent.LastActive = time.Now()
 
 	query := `
-		INSERT INTO agents (id, name, description, provider_id, status, config, created_at, updated_at)
+		INSERT INTO agents (id, name, persona_name, status, current_bead, project_id, started_at, last_active)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err := d.db.Exec(query,
 		agent.ID,
 		agent.Name,
-		agent.Description,
-		agent.ProviderID,
+		agent.PersonaName,
 		agent.Status,
-		agent.Config,
-		agent.CreatedAt,
-		agent.UpdatedAt,
+		agent.CurrentBead,
+		agent.ProjectID,
+		agent.StartedAt,
+		agent.LastActive,
 	)
 
 	if err != nil {
@@ -273,7 +273,7 @@ func (d *Database) CreateAgent(agent *models.Agent) error {
 // GetAgent retrieves an agent by ID
 func (d *Database) GetAgent(id string) (*models.Agent, error) {
 	query := `
-		SELECT id, name, description, provider_id, status, config, created_at, updated_at
+		SELECT id, name, persona_name, status, current_bead, project_id, started_at, last_active
 		FROM agents
 		WHERE id = ?
 	`
@@ -282,12 +282,12 @@ func (d *Database) GetAgent(id string) (*models.Agent, error) {
 	err := d.db.QueryRow(query, id).Scan(
 		&agent.ID,
 		&agent.Name,
-		&agent.Description,
-		&agent.ProviderID,
+		&agent.PersonaName,
 		&agent.Status,
-		&agent.Config,
-		&agent.CreatedAt,
-		&agent.UpdatedAt,
+		&agent.CurrentBead,
+		&agent.ProjectID,
+		&agent.StartedAt,
+		&agent.LastActive,
 	)
 
 	if err == sql.ErrNoRows {
@@ -303,9 +303,9 @@ func (d *Database) GetAgent(id string) (*models.Agent, error) {
 // ListAgents retrieves all agents
 func (d *Database) ListAgents() ([]*models.Agent, error) {
 	query := `
-		SELECT id, name, description, provider_id, status, config, created_at, updated_at
+		SELECT id, name, persona_name, status, current_bead, project_id, started_at, last_active
 		FROM agents
-		ORDER BY created_at DESC
+		ORDER BY started_at DESC
 	`
 
 	rows, err := d.db.Query(query)
@@ -320,12 +320,12 @@ func (d *Database) ListAgents() ([]*models.Agent, error) {
 		err := rows.Scan(
 			&agent.ID,
 			&agent.Name,
-			&agent.Description,
-			&agent.ProviderID,
+			&agent.PersonaName,
 			&agent.Status,
-			&agent.Config,
-			&agent.CreatedAt,
-			&agent.UpdatedAt,
+			&agent.CurrentBead,
+			&agent.ProjectID,
+			&agent.StartedAt,
+			&agent.LastActive,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan agent: %w", err)
@@ -336,60 +336,30 @@ func (d *Database) ListAgents() ([]*models.Agent, error) {
 	return agents, nil
 }
 
-// ListAgentsByProvider retrieves all agents for a specific provider
+// ListAgentsByProvider is deprecated - agents are no longer directly tied to providers
+// Use ListAgents and filter by project_id instead
 func (d *Database) ListAgentsByProvider(providerID string) ([]*models.Agent, error) {
-	query := `
-		SELECT id, name, description, provider_id, status, config, created_at, updated_at
-		FROM agents
-		WHERE provider_id = ?
-		ORDER BY created_at DESC
-	`
-
-	rows, err := d.db.Query(query, providerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agents by provider: %w", err)
-	}
-	defer rows.Close()
-
-	var agents []*models.Agent
-	for rows.Next() {
-		agent := &models.Agent{}
-		err := rows.Scan(
-			&agent.ID,
-			&agent.Name,
-			&agent.Description,
-			&agent.ProviderID,
-			&agent.Status,
-			&agent.Config,
-			&agent.CreatedAt,
-			&agent.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan agent: %w", err)
-		}
-		agents = append(agents, agent)
-	}
-
-	return agents, nil
+	// Return all agents for backwards compatibility
+	return d.ListAgents()
 }
 
 // UpdateAgent updates an agent
 func (d *Database) UpdateAgent(agent *models.Agent) error {
-	agent.UpdatedAt = time.Now()
+	agent.LastActive = time.Now()
 
 	query := `
 		UPDATE agents
-		SET name = ?, description = ?, provider_id = ?, status = ?, config = ?, updated_at = ?
+		SET name = ?, persona_name = ?, status = ?, current_bead = ?, project_id = ?, last_active = ?
 		WHERE id = ?
 	`
 
 	result, err := d.db.Exec(query,
 		agent.Name,
-		agent.Description,
-		agent.ProviderID,
+		agent.PersonaName,
 		agent.Status,
-		agent.Config,
-		agent.UpdatedAt,
+		agent.CurrentBead,
+		agent.ProjectID,
+		agent.LastActive,
 		agent.ID,
 	)
 
