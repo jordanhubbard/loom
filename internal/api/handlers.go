@@ -2,8 +2,15 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
+	"github.com/google/uuid"
+	internalmodels "github.com/jordanhubbard/arbiter/internal/models"
+	"github.com/jordanhubbard/arbiter/internal/storage"
 	"github.com/jordanhubbard/arbiter/pkg/models"
 )
 
@@ -199,16 +206,7 @@ func (s *Server) handleProject(w http.ResponseWriter, r *http.Request) {
 	default:
 		s.respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
 	}
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"strings"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/jordanhubbard/arbiter/internal/models"
-	"github.com/jordanhubbard/arbiter/internal/storage"
-)
+}
 
 // Handler provides HTTP handlers for the arbiter API
 type Handler struct {
@@ -229,7 +227,7 @@ func (h *Handler) CreateWork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req models.CreateWorkRequest
+	var req internalmodels.CreateWorkRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, fmt.Sprintf("Invalid request body: %v", err), http.StatusBadRequest)
 		return
@@ -240,10 +238,10 @@ func (h *Handler) CreateWork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	work := &models.Work{
+	work := &internalmodels.Work{
 		ID:          uuid.New().String(),
 		Description: req.Description,
-		Status:      models.WorkStatusPending,
+		Status:      internalmodels.WorkStatusPending,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -268,7 +266,7 @@ func (h *Handler) ListWork(w http.ResponseWriter, r *http.Request) {
 	// Check if we should filter for in-progress only
 	inProgressOnly := r.URL.Query().Get("status") == "in_progress"
 
-	var works []*models.Work
+	var works []*internalmodels.Work
 	if inProgressOnly {
 		works = h.storage.ListInProgressWorks()
 	} else {
@@ -308,7 +306,7 @@ func (h *Handler) ListServices(w http.ResponseWriter, r *http.Request) {
 	// Check if we should filter for active only
 	activeOnly := r.URL.Query().Get("active") == "true"
 
-	var services []*models.ServiceEndpoint
+	var services []*internalmodels.ServiceEndpoint
 	if activeOnly {
 		services = h.storage.ListActiveServices()
 	} else {
@@ -367,14 +365,14 @@ func (h *Handler) UpdateServiceCosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req models.UpdateServiceCostRequest
+	var req internalmodels.UpdateServiceCostRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, fmt.Sprintf("Invalid request body: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Validate cost type
-	if req.CostType != models.CostTypeFixed && req.CostType != models.CostTypeVariable {
+	if req.CostType != internalmodels.CostTypeFixed && req.CostType != internalmodels.CostTypeVariable {
 		http.Error(w, "Invalid cost_type. Must be 'fixed' or 'variable'", http.StatusBadRequest)
 		return
 	}
