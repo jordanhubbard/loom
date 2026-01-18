@@ -30,3 +30,10 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Binary
+arbiter
+
+# Logs
+*.log
+nohup.out

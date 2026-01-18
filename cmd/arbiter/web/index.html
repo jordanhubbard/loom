@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arbiter - Agent Orchestration Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Arbiter</h1>
+            <p class="subtitle">Agentic Coding Orchestrator</p>
+        </header>
+
+        <div class="dashboard">
+            <!-- Create Work Section -->
+            <section class="card">
+                <h2>Create New Work</h2>
+                <form id="workForm">
+                    <textarea id="workDescription" placeholder="Describe the work to be done..." rows="3" required></textarea>
+                    <button type="submit">Create Work</button>
+                </form>
+            </section>
+
+            <!-- Work in Progress Section -->
+            <section class="card">
+                <h2>Work in Progress</h2>
+                <div id="workList" class="data-list">
+                    <p class="loading">Loading...</p>
+                </div>
+            </section>
+
+            <!-- Agents Section -->
+            <section class="card">
+                <h2>Active Agents</h2>
+                <div id="agentsList" class="data-list">
+                    <p class="loading">Loading...</p>
+                </div>
+                <h3>Agent Communications</h3>
+                <div id="communicationsList" class="communications-list">
+                    <p class="empty-state">No communications yet</p>
+                </div>
+            </section>
+
+            <!-- Service Endpoints Section -->
+            <section class="card">
+                <h2>Service Endpoints</h2>
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="all">All Services</button>
+                    <button class="tab-btn" data-tab="active">Active Only</button>
+                    <button class="tab-btn" data-tab="preferred">Preferred Order</button>
+                </div>
+                <div id="servicesList" class="services-list">
+                    <p class="loading">Loading...</p>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Modal for editing service costs -->
+    <div id="costModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Update Service Costs</h2>
+            <form id="costForm">
+                <input type="hidden" id="modalServiceId">
+                <div class="form-group">
+                    <label>Service: <strong id="modalServiceName"></strong></label>
+                </div>
+                <div class="form-group">
+                    <label for="costType">Cost Type:</label>
+                    <select id="costType" required>
+                        <option value="fixed">Fixed Cost</option>
+                        <option value="variable">Variable Cost</option>
+                    </select>
+                </div>
+                <div class="form-group" id="fixedCostGroup">
+                    <label for="fixedCost">Fixed Cost ($):</label>
+                    <input type="number" id="fixedCost" step="0.01" min="0" placeholder="0.00">
+                    <small>For self-hosted services, use 0 for free</small>
+                </div>
+                <div class="form-group" id="costPerTokenGroup" style="display: none;">
+                    <label for="costPerToken">Cost per Token ($):</label>
+                    <input type="number" id="costPerToken" step="0.0000001" min="0" placeholder="0.00003">
+                    <small>For paid API services</small>
+                </div>
+                <button type="submit">Update Costs</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
