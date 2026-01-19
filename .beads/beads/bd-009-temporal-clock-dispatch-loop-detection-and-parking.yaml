@@ -87,4 +87,4 @@ updated_at: 2026-01-19T08:10:00Z
 closed_at: 2026-01-19T08:10:00Z
 context:
   source: user-request
-  related_beads: bd-008
+  related_beads: "bd-008"

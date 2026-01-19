@@ -45,4 +45,4 @@ updated_at: 2026-01-19T08:00:00Z
 closed_at: 2026-01-19T08:00:00Z
 context:
   source: user-request
-  files: README.md
+  files: "README.md"
