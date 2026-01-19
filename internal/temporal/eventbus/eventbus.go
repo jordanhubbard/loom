@@ -7,27 +7,35 @@ import (
 	"time"
 
 	"go.temporal.io/sdk/workflow"
-	
-	"github.com/jordanhubbard/arbiter/pkg/config"
+
 	temporalclient "github.com/jordanhubbard/arbiter/internal/temporal/client"
+	"github.com/jordanhubbard/arbiter/pkg/config"
 )
 
 // EventType represents the type of event
 type EventType string
 
 const (
-	EventTypeAgentSpawned      EventType = "agent.spawned"
-	EventTypeAgentStatusChange EventType = "agent.status_change"
-	EventTypeAgentCompleted    EventType = "agent.completed"
-	EventTypeBeadCreated       EventType = "bead.created"
-	EventTypeBeadAssigned      EventType = "bead.assigned"
-	EventTypeBeadStatusChange  EventType = "bead.status_change"
-	EventTypeBeadCompleted     EventType = "bead.completed"
-	EventTypeDecisionCreated   EventType = "decision.created"
-	EventTypeDecisionResolved  EventType = "decision.resolved"
-	EventTypeLogMessage        EventType = "log.message"
-	EventTypeWorkflowStarted   EventType = "workflow.started"
-	EventTypeWorkflowCompleted EventType = "workflow.completed"
+	EventTypeAgentSpawned       EventType = "agent.spawned"
+	EventTypeAgentStatusChange  EventType = "agent.status_change"
+	EventTypeAgentHeartbeat     EventType = "agent.heartbeat"
+	EventTypeAgentCompleted     EventType = "agent.completed"
+	EventTypeBeadCreated        EventType = "bead.created"
+	EventTypeBeadAssigned       EventType = "bead.assigned"
+	EventTypeBeadStatusChange   EventType = "bead.status_change"
+	EventTypeBeadCompleted      EventType = "bead.completed"
+	EventTypeDecisionCreated    EventType = "decision.created"
+	EventTypeDecisionResolved   EventType = "decision.resolved"
+	EventTypeProviderRegistered EventType = "provider.registered"
+	EventTypeProviderDeleted    EventType = "provider.deleted"
+	EventTypeProviderUpdated    EventType = "provider.updated"
+	EventTypeProjectCreated     EventType = "project.created"
+	EventTypeProjectUpdated     EventType = "project.updated"
+	EventTypeProjectDeleted     EventType = "project.deleted"
+	EventTypeConfigUpdated      EventType = "config.updated"
+	EventTypeLogMessage         EventType = "log.message"
+	EventTypeWorkflowStarted    EventType = "workflow.started"
+	EventTypeWorkflowCompleted  EventType = "workflow.completed"
 )
 
 // Event represents a system event
@@ -35,8 +43,8 @@ type Event struct {
 	ID        string                 `json:"id"`
 	Type      EventType              `json:"type"`
 	Timestamp time.Time              `json:"timestamp"`
-	Source    string                 `json:"source"`     // Component that generated the event
-	Data      map[string]interface{} `json:"data"`       // Event payload
+	Source    string                 `json:"source"` // Component that generated the event
+	Data      map[string]interface{} `json:"data"`   // Event payload
 	ProjectID string                 `json:"project_id,omitempty"`
 }
 
@@ -61,7 +69,7 @@ type EventBus struct {
 // NewEventBus creates a new event bus
 func NewEventBus(client *temporalclient.Client, cfg *config.TemporalConfig) *EventBus {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	bufferSize := cfg.EventBufferSize
 	if bufferSize <= 0 {
 		bufferSize = 1000
@@ -154,9 +162,15 @@ func (eb *EventBus) processEvents() {
 // distributeEvent sends event to all matching subscribers
 func (eb *EventBus) distributeEvent(event *Event) {
 	eb.mu.RLock()
-	defer eb.mu.RUnlock()
-
+	subs := make([]*Subscriber, 0, len(eb.subscribers))
 	for _, sub := range eb.subscribers {
+		subs = append(subs, sub)
+	}
+	client := eb.client
+	cfg := eb.config
+	eb.mu.RUnlock()
+
+	for _, sub := range subs {
 		// Apply filter if present
 		if sub.Filter != nil && !sub.Filter(event) {
 			continue
@@ -169,6 +183,19 @@ func (eb *EventBus) distributeEvent(event *Event) {
 			// Subscriber channel is full, skip
 		}
 	}
+
+	// When Temporal is enabled, also signal the global dispatcher workflow
+	// to wake immediately on new work.
+	if client == nil || cfg == nil || cfg.Host == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_ = client.SignalWorkflow(ctx, "dispatcher-global", "", "dispatcher.trigger", map[string]interface{}{
+		"event_type": string(event.Type),
+		"event_id":   event.ID,
+		"project_id": event.ProjectID,
+	})
 }
 
 // Close shuts down the event bus
@@ -236,14 +263,14 @@ func EventAggregatorWorkflow(ctx workflow.Context, projectID string) error {
 
 	// This workflow runs indefinitely and processes signals
 	selector := workflow.NewSelector(ctx)
-	
+
 	// Handle event signals
 	var eventChannel workflow.ReceiveChannel = workflow.GetSignalChannel(ctx, "event")
 	selector.AddReceive(eventChannel, func(c workflow.ReceiveChannel, more bool) {
 		var event Event
 		c.Receive(ctx, &event)
 		logger.Info("Received event", "type", event.Type, "id", event.ID)
-		
+
 		// In a real implementation, you might want to:
 		// - Store events in a workflow variable
 		// - Aggregate metrics
@@ -253,7 +280,7 @@ func EventAggregatorWorkflow(ctx workflow.Context, projectID string) error {
 	// Keep workflow running
 	for {
 		selector.Select(ctx)
-		
+
 		// Check if workflow should continue
 		if workflow.GetInfo(ctx).GetCurrentHistoryLength() > 10000 {
 			// Start new workflow to avoid history growth

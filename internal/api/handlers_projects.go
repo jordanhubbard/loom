@@ -82,6 +82,7 @@ func (s *Server) handleCloseProject(w http.ResponseWriter, r *http.Request, id s
 		s.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.arbiter.PersistProject(id)
 
 	project, _ := s.arbiter.GetProjectManager().GetProject(id)
 	s.respondJSON(w, http.StatusOK, project)
@@ -112,6 +113,7 @@ func (s *Server) handleReopenProject(w http.ResponseWriter, r *http.Request, id 
 		s.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.arbiter.PersistProject(id)
 
 	project, _ := s.arbiter.GetProjectManager().GetProject(id)
 	s.respondJSON(w, http.StatusOK, project)
@@ -148,6 +150,7 @@ func (s *Server) handleProjectComments(w http.ResponseWriter, r *http.Request, i
 			s.respondError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		s.arbiter.PersistProject(id)
 
 		s.respondJSON(w, http.StatusCreated, comment)
 

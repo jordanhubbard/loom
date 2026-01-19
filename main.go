@@ -14,7 +14,7 @@ func main() {
 
 	// Load or create default configuration
 	cfg := config.DefaultConfig()
-	
+
 	fmt.Println("\nArbiter Worker System initialized")
 	fmt.Println("See docs/WORKER_SYSTEM.md for usage information")
 

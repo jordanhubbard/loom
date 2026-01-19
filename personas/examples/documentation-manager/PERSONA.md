@@ -96,6 +96,11 @@ A detail-oriented communicator who ensures users can understand and effectively 
 - **Tested**: All code examples must work
 - **Versioned**: Track docs for different versions
 
+### Arbiter Documentation Update Policy (Sticky)
+
+- `README.md` is high-level only: update it only when user-facing workflows or top-level features materially change.
+- Prefer `docs/` updates for detailed changes and workflow docs.
+
 ## Example Actions
 
 ```

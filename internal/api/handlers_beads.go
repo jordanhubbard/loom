@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jordanhubbard/arbiter/pkg/models"
 )
@@ -116,6 +117,58 @@ func (s *Server) handleBead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle /redispatch endpoint
+	if len(parts) > 1 && parts[1] == "redispatch" {
+		if r.Method != http.MethodPost {
+			s.respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+
+		var req struct {
+			Reason string `json:"reason"`
+		}
+		_ = s.parseJSON(r, &req)
+
+		updates := map[string]interface{}{
+			"status": models.BeadStatusOpen,
+			"context": map[string]string{
+				"redispatch_requested":    "true",
+				"redispatch_requested_at": time.Now().UTC().Format(time.RFC3339),
+				"redispatch_reason":       req.Reason,
+			},
+		}
+
+		bead, err := s.arbiter.UpdateBead(id, updates)
+		if err != nil {
+			s.respondError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		s.respondJSON(w, http.StatusOK, bead)
+		return
+	}
+
+	// Handle /escalate endpoint (human-in-the-loop)
+	if len(parts) > 1 && parts[1] == "escalate" {
+		if r.Method != http.MethodPost {
+			s.respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+
+		var req struct {
+			Reason     string `json:"reason"`
+			ReturnedTo string `json:"returned_to"`
+		}
+		_ = s.parseJSON(r, &req)
+
+		decision, err := s.arbiter.EscalateBeadToCEO(id, req.Reason, req.ReturnedTo)
+		if err != nil {
+			s.respondError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		s.respondJSON(w, http.StatusOK, decision)
+		return
+	}
+
 	// Handle regular bead operations
 	switch r.Method {
 	case http.MethodGet:
@@ -152,12 +205,11 @@ func (s *Server) handleBead(w http.ResponseWriter, r *http.Request) {
 			updates["context"] = req.Context
 		}
 
-		if err := s.arbiter.GetBeadsManager().UpdateBead(id, updates); err != nil {
+		bead, err := s.arbiter.UpdateBead(id, updates)
+		if err != nil {
 			s.respondError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-
-		bead, _ := s.arbiter.GetBeadsManager().GetBead(id)
 		s.respondJSON(w, http.StatusOK, bead)
 
 	default:
@@ -251,7 +303,7 @@ func (s *Server) handleFileLocks(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		projectID := r.URL.Query().Get("project_id")
-		
+
 		var locks []*models.FileLock
 		if projectID != "" {
 			locks = s.arbiter.GetFileLockManager().ListLocksByProject(projectID)
@@ -304,7 +356,7 @@ func (s *Server) handleFileLock(w http.ResponseWriter, r *http.Request) {
 
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/file-locks/")
 	parts := strings.SplitN(path, "/", 2)
-	
+
 	if len(parts) < 2 {
 		s.respondError(w, http.StatusBadRequest, "Invalid path")
 		return

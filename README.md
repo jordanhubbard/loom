@@ -14,6 +14,53 @@ Arbiter is a lightweight AI coding agent orchestration system that manages workf
 - 🎯 **Smart Routing**: Intelligent task assignment and agent coordination
 - 🔒 **Secure**: Encrypted secret storage and secure credential management
 
+## Default Personas
+
+Default personas are available under `./personas/`:
+
+- `personas/arbiter` — Arbiter-specific system persona(s)
+- `personas/examples/ceo` — Human CEO decision maker (tie-breaks / approvals)
+- `personas/examples/project-manager` — Plans work, files beads, drives delivery
+- `personas/examples/product-manager` — Identifies feature gaps and writes PRDs for epics
+- `personas/examples/engineering-manager` — Reviews technical direction and feasibility
+- `personas/examples/code-reviewer` — Reviews patches for correctness and quality
+- `personas/examples/qa-engineer` — Testing strategy and verification
+- `personas/examples/devops-engineer` — Deployment/ops and infrastructure guidance
+- `personas/examples/documentation-manager` — Keeps docs accurate per doc policy
+- `personas/examples/decision-maker` — Resolves routine decisions (non-CEO)
+- `personas/examples/web-designer` — UX/UI guidance
+- `personas/examples/web-designer-engineer` — UX/UI + implementation guidance
+- `personas/examples/public-relations-manager` — Messaging/launch communication support
+- `personas/examples/housekeeping-bot` — Cleanup and hygiene tasks
+
+## Project Registration
+
+Projects are registered via `config.yaml` under `projects:` (and persisted in the configuration DB when enabled).
+
+Required fields:
+- `id`, `name`, `git_repo`, `branch`, `beads_path`
+
+Optional fields:
+- `is_perpetual` (never closes)
+- `context` (recommended: build/test/lint commands and other agent-relevant context)
+
+Example:
+
+```yaml
+projects:
+  - id: arbiter
+    name: Arbiter
+    git_repo: https://github.com/jordanhubbard/arbiter
+    branch: main
+    beads_path: .beads
+    is_perpetual: true
+    context:
+      test: go test ./...
+      vet: go vet ./...
+```
+
+Arbiter “dogfoods” itself by registering this repo as a project and loading beads from the project’s `.beads/` directory.
+
 ## Architecture
 
 Arbiter is built with the following principles:

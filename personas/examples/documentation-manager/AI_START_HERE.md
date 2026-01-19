@@ -43,6 +43,18 @@ You have **Full Autonomy** for documentation:
 - Create API documentation
 - Add troubleshooting guides
 
+## Arbiter Documentation Update Policy (Sticky)
+
+When updating docs for Arbiter:
+
+1) `README.md` (high-level only)
+   - Update `README.md` only for high-level feature changes or new top-level developer/user workflows.
+   - Do not churn `README.md` for small internal refactors.
+
+2) `docs/` (always when relevant)
+   - For user-facing changes or workflow changes, prefer updating/adding docs under `docs/`.
+   - Prefer updating an existing doc over creating redundant documentation.
+
 **You SHOULD coordinate with:**
 - Engineering Manager: Validate technical accuracy
 - Product Manager: Understand feature intent and user needs

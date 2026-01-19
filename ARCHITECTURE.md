@@ -17,6 +17,61 @@ The **Key Manager** securely stores provider credentials with strong encryption.
 
 ## Architecture Diagram
 
+Last updated: 2026-01-19
+
+```mermaid
+flowchart LR
+  subgraph UI[Web UI]
+    Browser[Browser]
+  end
+
+  subgraph Arbiter[Arbiter (Go)]
+    API[HTTP API]
+    SSE[SSE /api/v1/events/stream]
+    EB[Event Bus]
+    DISP[Dispatcher]
+    WM[WorkerManager]
+    PR[Provider Registry]
+    KM[Key Manager]
+    CFG[Config DB (SQLite)]
+    BM[Beads Manager (.beads)]
+    PM[Project Manager]
+    DM[Decision Manager]
+  end
+
+  subgraph Temporal[Temporal (optional)]
+    TW[Temporal Worker]
+    TS[Temporal Server]
+  end
+
+  subgraph Providers[Model Providers]
+    VLLM[vLLM / OpenAI-compatible]
+    OAI[OpenAI/Anthropic/etc]
+  end
+
+  Browser --> API
+  API -->|events| EB
+  EB --> SSE
+
+  API --> CFG
+  API --> PM
+  API --> BM
+  API --> DM
+  API --> WM
+  API --> PR
+  API --> KM
+
+  DISP --> BM
+  DISP --> WM
+  WM --> PR
+  PR --> VLLM
+  PR --> OAI
+
+  EB -. signal .-> TW
+  TW --> TS
+  DISP -. activity .-> TW
+```
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        Arbiter                               │

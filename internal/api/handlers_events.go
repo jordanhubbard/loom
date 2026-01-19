@@ -17,13 +17,7 @@ func (s *Server) handleEventStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get Temporal event bus
-	if s.arbiter.GetTemporalManager() == nil {
-		s.respondError(w, http.StatusServiceUnavailable, "Event bus not available")
-		return
-	}
-
-	eventBus := s.arbiter.GetTemporalManager().GetEventBus()
+	eventBus := s.arbiter.GetEventBus()
 	if eventBus == nil {
 		s.respondError(w, http.StatusServiceUnavailable, "Event bus not available")
 		return
@@ -107,7 +101,7 @@ func (s *Server) handleGetEvents(w http.ResponseWriter, r *http.Request) {
 	// For now, return empty array since we need to implement event storage
 	// In a real implementation, you'd query Temporal workflows or a separate event store
 	s.respondJSON(w, http.StatusOK, map[string]interface{}{
-		"events": []interface{}{},
+		"events":  []interface{}{},
 		"message": "Event history not yet implemented - use /api/v1/events/stream for real-time events",
 	})
 }
@@ -120,13 +114,7 @@ func (s *Server) handlePublishEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get Temporal event bus
-	if s.arbiter.GetTemporalManager() == nil {
-		s.respondError(w, http.StatusServiceUnavailable, "Event bus not available")
-		return
-	}
-
-	eventBus := s.arbiter.GetTemporalManager().GetEventBus()
+	eventBus := s.arbiter.GetEventBus()
 	if eventBus == nil {
 		s.respondError(w, http.StatusServiceUnavailable, "Event bus not available")
 		return
@@ -159,13 +147,7 @@ func (s *Server) handleGetEventStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get Temporal event bus
-	if s.arbiter.GetTemporalManager() == nil {
-		s.respondError(w, http.StatusServiceUnavailable, "Event bus not available")
-		return
-	}
-
-	eventBus := s.arbiter.GetTemporalManager().GetEventBus()
+	eventBus := s.arbiter.GetEventBus()
 	if eventBus == nil {
 		s.respondError(w, http.StatusServiceUnavailable, "Event bus not available")
 		return

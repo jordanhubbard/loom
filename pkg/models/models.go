@@ -35,6 +35,7 @@ type Agent struct {
 	Name        string    `json:"name"`
 	PersonaName string    `json:"persona_name"`
 	Persona     *Persona  `json:"persona,omitempty"`
+	ProviderID  string    `json:"provider_id,omitempty"`
 	Status      string    `json:"status"` // "idle", "working", "deciding", "blocked"
 	CurrentBead string    `json:"current_bead,omitempty"`
 	ProjectID   string    `json:"project_id"`
@@ -55,7 +56,7 @@ const (
 type ProjectComment struct {
 	ID        string    `json:"id"`
 	ProjectID string    `json:"project_id"`
-	AuthorID  string    `json:"author_id"`  // Agent ID or "user-{id}"
+	AuthorID  string    `json:"author_id"` // Agent ID or "user-{id}"
 	Comment   string    `json:"comment"`
 	Timestamp time.Time `json:"timestamp"`
 }
@@ -122,14 +123,14 @@ type Bead struct {
 // DecisionBead represents a specific decision point that needs resolution
 type DecisionBead struct {
 	*Bead
-	Question      string   `json:"question"`
-	Options       []string `json:"options,omitempty"`
-	Recommendation string   `json:"recommendation,omitempty"`
-	RequesterID   string   `json:"requester_id"` // Agent ID that filed the decision
-	DeciderID     string   `json:"decider_id,omitempty"`
-	Decision      string   `json:"decision,omitempty"`
-	Rationale     string   `json:"rationale,omitempty"`
-	DecidedAt     *time.Time `json:"decided_at,omitempty"`
+	Question       string     `json:"question"`
+	Options        []string   `json:"options,omitempty"`
+	Recommendation string     `json:"recommendation,omitempty"`
+	RequesterID    string     `json:"requester_id"` // Agent ID that filed the decision
+	DeciderID      string     `json:"decider_id,omitempty"`
+	Decision       string     `json:"decision,omitempty"`
+	Rationale      string     `json:"rationale,omitempty"`
+	DecidedAt      *time.Time `json:"decided_at,omitempty"`
 }
 
 // FileLock represents a lock on a file to prevent merge conflicts
@@ -144,8 +145,8 @@ type FileLock struct {
 
 // WorkGraph represents the dependency graph of beads
 type WorkGraph struct {
-	Beads    map[string]*Bead `json:"beads"`
-	Edges    []Edge           `json:"edges"`
+	Beads     map[string]*Bead `json:"beads"`
+	Edges     []Edge           `json:"edges"`
 	UpdatedAt time.Time        `json:"updated_at"`
 }
 
@@ -160,7 +161,7 @@ type Edge struct {
 type AutonomyLevel string
 
 const (
-	AutonomyFull       AutonomyLevel = "full"        // Can make all non-P0 decisions
-	AutonomySemi       AutonomyLevel = "semi"        // Can make routine decisions
-	AutonomySupervised AutonomyLevel = "supervised"  // Requires approval for all decisions
+	AutonomyFull       AutonomyLevel = "full"       // Can make all non-P0 decisions
+	AutonomySemi       AutonomyLevel = "semi"       // Can make routine decisions
+	AutonomySupervised AutonomyLevel = "supervised" // Requires approval for all decisions
 )

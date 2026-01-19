@@ -7,7 +7,7 @@ import (
 
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
-	
+
 	"github.com/jordanhubbard/arbiter/pkg/config"
 )
 

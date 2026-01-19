@@ -2,15 +2,9 @@ package api
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"github.com/jordanhubbard/arbiter/pkg/models"
 	"net/http"
 	"strings"
-	"time"
-
-	"github.com/google/uuid"
-	internalmodels "github.com/jordanhubbard/arbiter/internal/models"
-	"github.com/jordanhubbard/arbiter/pkg/models"
 )
 
 // handlePersonas handles GET /api/v1/personas
@@ -100,6 +94,7 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 			Name        string `json:"name"`
 			PersonaName string `json:"persona_name"`
 			ProjectID   string `json:"project_id"`
+			ProviderID  string `json:"provider_id"`
 		}
 		if err := s.parseJSON(r, &req); err != nil {
 			s.respondError(w, http.StatusBadRequest, "Invalid request body")
@@ -111,7 +106,7 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		agent, err := s.arbiter.SpawnAgent(context.Background(), req.Name, req.PersonaName, req.ProjectID)
+		agent, err := s.arbiter.SpawnAgent(context.Background(), req.Name, req.PersonaName, req.ProjectID, req.ProviderID)
 		if err != nil {
 			s.respondError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -138,12 +133,10 @@ func (s *Server) handleAgent(w http.ResponseWriter, r *http.Request) {
 		s.respondJSON(w, http.StatusOK, agent)
 
 	case http.MethodDelete:
-		if err := s.arbiter.GetAgentManager().StopAgent(id); err != nil {
+		if err := s.arbiter.StopAgent(context.Background(), id); err != nil {
 			s.respondError(w, http.StatusNotFound, "Agent not found")
 			return
 		}
-		// Release all locks held by this agent
-		s.arbiter.GetFileLockManager().ReleaseAgentLocks(id)
 		w.WriteHeader(http.StatusNoContent)
 
 	default:
@@ -176,7 +169,7 @@ func (s *Server) handleProjects(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		project, err := s.arbiter.GetProjectManager().CreateProject(req.Name, req.GitRepo, req.Branch, req.BeadsPath, req.Context)
+		project, err := s.arbiter.CreateProject(req.Name, req.GitRepo, req.Branch, req.BeadsPath, req.Context)
 		if err != nil {
 			s.respondError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -211,6 +204,58 @@ func (s *Server) handleProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.respondJSON(w, http.StatusOK, project)
+
+	case http.MethodPut:
+		var req struct {
+			Name        string            `json:"name"`
+			GitRepo     string            `json:"git_repo"`
+			Branch      string            `json:"branch"`
+			BeadsPath   string            `json:"beads_path"`
+			Context     map[string]string `json:"context"`
+			Status      string            `json:"status"`
+			IsPerpetual *bool             `json:"is_perpetual"`
+		}
+		if err := s.parseJSON(r, &req); err != nil {
+			s.respondError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+		updates := map[string]interface{}{}
+		if req.Name != "" {
+			updates["name"] = req.Name
+		}
+		if req.GitRepo != "" {
+			updates["git_repo"] = req.GitRepo
+		}
+		if req.Branch != "" {
+			updates["branch"] = req.Branch
+		}
+		if req.BeadsPath != "" {
+			updates["beads_path"] = req.BeadsPath
+		}
+		if req.Context != nil {
+			updates["context"] = req.Context
+		}
+		if req.Status != "" {
+			updates["status"] = req.Status
+		}
+		if req.IsPerpetual != nil {
+			updates["is_perpetual"] = *req.IsPerpetual
+		}
+
+		if err := s.arbiter.GetProjectManager().UpdateProject(id, updates); err != nil {
+			s.respondError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		s.arbiter.PersistProject(id)
+		project, _ := s.arbiter.GetProjectManager().GetProject(id)
+		s.respondJSON(w, http.StatusOK, project)
+
+	case http.MethodDelete:
+		if err := s.arbiter.DeleteProject(id); err != nil {
+			s.respondError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 
 	default:
 		s.respondError(w, http.StatusMethodNotAllowed, "Method not allowed")

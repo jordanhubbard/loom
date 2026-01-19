@@ -34,7 +34,7 @@ func TestWorkerSystemIntegration(t *testing.T) {
 		ID:       "mock-provider",
 		Name:     "Mock Provider",
 		Type:     "custom",
-		Endpoint: "http://localhost:8888/v1",  // Mock endpoint
+		Endpoint: "http://localhost:8888/v1", // Mock endpoint
 		APIKey:   "mock-key",
 		Model:    "mock-model",
 	}
@@ -46,7 +46,7 @@ func TestWorkerSystemIntegration(t *testing.T) {
 
 	// Step 2: Create worker manager
 	maxAgents := 5
-	workerManager := agent.NewWorkerManager(maxAgents, registry)
+	workerManager := agent.NewWorkerManager(maxAgents, registry, nil)
 
 	// Step 3: Load a test persona
 	_ = persona.NewManager("../../personas") // persona manager available if needed
@@ -149,7 +149,7 @@ func TestMultipleAgentsWorkflow(t *testing.T) {
 	}
 
 	// Create worker manager
-	workerManager := agent.NewWorkerManager(10, registry)
+	workerManager := agent.NewWorkerManager(10, registry, nil)
 
 	// Create test personas
 	persona1 := &models.Persona{Name: "agent-1", Mission: "Task 1"}
@@ -295,7 +295,7 @@ func TestWorkerTaskExecution(t *testing.T) {
 		Model:    "test",
 	})
 
-	workerManager := agent.NewWorkerManager(5, registry)
+	workerManager := agent.NewWorkerManager(5, registry, nil)
 	persona := &models.Persona{
 		Name:    "test",
 		Mission: "test mission",
@@ -347,7 +347,7 @@ func TestWorkerPoolLimits(t *testing.T) {
 
 	// Create manager with max 2 workers
 	maxWorkers := 2
-	workerManager := agent.NewWorkerManager(maxWorkers, registry)
+	workerManager := agent.NewWorkerManager(maxWorkers, registry, nil)
 
 	ctx := context.Background()
 	persona := &models.Persona{Name: "test"}

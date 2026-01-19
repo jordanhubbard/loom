@@ -38,7 +38,7 @@ const (
 // NewWorker creates a new agent worker
 func NewWorker(id string, agent *models.Agent, provider *provider.RegisteredProvider) *Worker {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	return &Worker{
 		id:         id,
 		agent:      agent,
@@ -55,19 +55,19 @@ func NewWorker(id string, agent *models.Agent, provider *provider.RegisteredProv
 func (w *Worker) Start() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	
+
 	if w.status == WorkerStatusWorking {
 		return fmt.Errorf("worker %s is already running", w.id)
 	}
-	
+
 	w.status = WorkerStatusIdle
 	w.lastActive = time.Now()
-	
+
 	log.Printf("Worker %s started for agent %s using provider %s", w.id, w.agent.Name, w.provider.Config.Name)
-	
+
 	// Worker is now ready to receive tasks
 	// The actual task processing will be handled by the pool
-	
+
 	return nil
 }
 
@@ -75,10 +75,10 @@ func (w *Worker) Start() error {
 func (w *Worker) Stop() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	
+
 	w.cancel()
 	w.status = WorkerStatusStopped
-	
+
 	log.Printf("Worker %s stopped", w.id)
 }
 
@@ -93,7 +93,7 @@ func (w *Worker) ExecuteTask(ctx context.Context, task *Task) (*TaskResult, erro
 	w.currentTask = task.ID
 	w.lastActive = time.Now()
 	w.mu.Unlock()
-	
+
 	defer func() {
 		w.mu.Lock()
 		w.status = WorkerStatusIdle
@@ -101,16 +101,16 @@ func (w *Worker) ExecuteTask(ctx context.Context, task *Task) (*TaskResult, erro
 		w.lastActive = time.Now()
 		w.mu.Unlock()
 	}()
-	
+
 	// Build the system prompt with persona information
 	systemPrompt := w.buildSystemPrompt()
-	
+
 	// Build the user prompt with task information
 	userPrompt := task.Description
 	if task.Context != "" {
 		userPrompt = fmt.Sprintf("%s\n\nContext:\n%s", userPrompt, task.Context)
 	}
-	
+
 	// Create chat completion request
 	req := &provider.ChatCompletionRequest{
 		Model: w.provider.Config.Model,
@@ -120,18 +120,18 @@ func (w *Worker) ExecuteTask(ctx context.Context, task *Task) (*TaskResult, erro
 		},
 		Temperature: 0.7,
 	}
-	
+
 	// Send request to provider
 	resp, err := w.provider.Protocol.CreateChatCompletion(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get completion: %w", err)
 	}
-	
+
 	// Extract result from response
 	if len(resp.Choices) == 0 {
 		return nil, fmt.Errorf("no response from provider")
 	}
-	
+
 	result := &TaskResult{
 		TaskID:      task.ID,
 		WorkerID:    w.id,
@@ -141,7 +141,7 @@ func (w *Worker) ExecuteTask(ctx context.Context, task *Task) (*TaskResult, erro
 		CompletedAt: time.Now(),
 		Success:     true,
 	}
-	
+
 	return result, nil
 }
 
@@ -150,25 +150,25 @@ func (w *Worker) buildSystemPrompt() string {
 	if w.agent.Persona == nil {
 		return fmt.Sprintf("You are %s, an AI agent.", w.agent.Name)
 	}
-	
+
 	persona := w.agent.Persona
 	prompt := ""
-	
+
 	// Add identity
 	if persona.Character != "" {
 		prompt += fmt.Sprintf("# Your Character\n%s\n\n", persona.Character)
 	}
-	
+
 	// Add mission
 	if persona.Mission != "" {
 		prompt += fmt.Sprintf("# Your Mission\n%s\n\n", persona.Mission)
 	}
-	
+
 	// Add personality
 	if persona.Personality != "" {
 		prompt += fmt.Sprintf("# Your Personality\n%s\n\n", persona.Personality)
 	}
-	
+
 	// Add capabilities
 	if len(persona.Capabilities) > 0 {
 		prompt += "# Your Capabilities\n"
@@ -177,17 +177,17 @@ func (w *Worker) buildSystemPrompt() string {
 		}
 		prompt += "\n"
 	}
-	
+
 	// Add autonomy instructions
 	if persona.AutonomyInstructions != "" {
 		prompt += fmt.Sprintf("# Autonomy Guidelines\n%s\n\n", persona.AutonomyInstructions)
 	}
-	
+
 	// Add decision instructions
 	if persona.DecisionInstructions != "" {
 		prompt += fmt.Sprintf("# Decision Making\n%s\n\n", persona.DecisionInstructions)
 	}
-	
+
 	return prompt
 }
 
@@ -202,7 +202,7 @@ func (w *Worker) GetStatus() WorkerStatus {
 func (w *Worker) GetInfo() WorkerInfo {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	
+
 	return WorkerInfo{
 		ID:          w.id,
 		AgentName:   w.agent.Name,

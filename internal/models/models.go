@@ -23,7 +23,6 @@ type Work struct {
 	Result      string     `json:"result,omitempty"`
 }
 
-
 // AgentCommunication represents communication between two agents
 type AgentCommunication struct {
 	ID        string    `json:"id"`
@@ -43,19 +42,19 @@ const (
 
 // ServiceEndpoint represents an LLM service endpoint
 type ServiceEndpoint struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	URL           string    `json:"url"`
-	Type          string    `json:"type"` // ollama, vllm, openai, anthropic, etc.
-	IsActive      bool      `json:"is_active"`
-	CostType      CostType  `json:"cost_type"`
-	CostPerToken  float64   `json:"cost_per_token"`  // For variable cost services
-	FixedCost     float64   `json:"fixed_cost"`      // For fixed cost services (monthly, etc.)
-	TokensUsed    int64     `json:"tokens_used"`
-	TotalCost     float64   `json:"total_cost"`
-	RequestCount  int64     `json:"request_count"`
-	LastActive    time.Time `json:"last_active"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	URL          string    `json:"url"`
+	Type         string    `json:"type"` // ollama, vllm, openai, anthropic, etc.
+	IsActive     bool      `json:"is_active"`
+	CostType     CostType  `json:"cost_type"`
+	CostPerToken float64   `json:"cost_per_token"` // For variable cost services
+	FixedCost    float64   `json:"fixed_cost"`     // For fixed cost services (monthly, etc.)
+	TokensUsed   int64     `json:"tokens_used"`
+	TotalCost    float64   `json:"total_cost"`
+	RequestCount int64     `json:"request_count"`
+	LastActive   time.Time `json:"last_active"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // Traffic represents network traffic to/from a service

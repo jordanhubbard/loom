@@ -1,0 +1,44 @@
+id: bd-010
+type: task
+title: P0 (sticky) Documentation update policy for Arbiter
+description: |
+  This is a sticky, always-on bead for the Arbiter project.
+
+  Goal
+  - Keep user documentation accurate and current for the Arbiter project.
+
+  Rules
+  1) README.md (high-level only)
+     - Update README.md ONLY when there is a high-level feature change or a new
+       Make target that should appear in the project's high-level summary.
+     - Do NOT churn README.md for small internal refactors.
+
+  2) docs/ directory (always when relevant)
+     - For any relevant feature/change, add new docs or update existing docs
+       under docs/.
+     - Prefer updating an existing doc over creating redundant documentation.
+
+  Definition of Done (for any feature bead)
+  - If the feature is user-facing or changes workflows, docs/ is updated.
+  - If the change impacts the high-level entrypoint summary, README.md is updated.
+  - Otherwise, README.md remains unchanged.
+
+status: open
+priority: 0
+project_id: arbiter
+assigned_to: null
+blocked_by: []
+blocks: []
+parent: null
+children: []
+tags:
+  - p0
+  - sticky
+  - docs
+  - process
+created_at: 2026-01-19T06:30:53Z
+updated_at: 2026-01-19T06:30:53Z
+closed_at: null
+context:
+  source: user-request
+  note: "This bead should not be closed; it represents an ongoing requirement."

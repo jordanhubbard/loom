@@ -11,37 +11,45 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const configFileName = ".arbiter.json"
+
+// Provider represents an AI service provider configuration (user-specific JSON config).
+type Provider struct {
+	Name     string `json:"name"`
+	Endpoint string `json:"endpoint"`
+}
+
 // Config represents the main configuration for the arbiter system.
 // It supports both YAML-based configuration (for file-based config using LoadConfigFromFile)
 // and JSON-based configuration (for user-specific config using LoadConfig).
 type Config struct {
 	// YAML/File-based configuration fields
-	Server      ServerConfig      `yaml:"server" json:"server,omitempty"`
-	Database    DatabaseConfig    `yaml:"database" json:"database,omitempty"`
-	Beads       BeadsConfig       `yaml:"beads" json:"beads,omitempty"`
-	Agents      AgentsConfig      `yaml:"agents" json:"agents,omitempty"`
-	Security    SecurityConfig    `yaml:"security" json:"security,omitempty"`
-	Projects    []ProjectConfig   `yaml:"projects" json:"projects,omitempty"`
-	WebUI       WebUIConfig       `yaml:"web_ui" json:"web_ui,omitempty"`
-	Temporal    TemporalConfig    `yaml:"temporal" json:"temporal,omitempty"`
-	
+	Server   ServerConfig    `yaml:"server" json:"server,omitempty"`
+	Database DatabaseConfig  `yaml:"database" json:"database,omitempty"`
+	Beads    BeadsConfig     `yaml:"beads" json:"beads,omitempty"`
+	Agents   AgentsConfig    `yaml:"agents" json:"agents,omitempty"`
+	Security SecurityConfig  `yaml:"security" json:"security,omitempty"`
+	Projects []ProjectConfig `yaml:"projects" json:"projects,omitempty"`
+	WebUI    WebUIConfig     `yaml:"web_ui" json:"web_ui,omitempty"`
+	Temporal TemporalConfig  `yaml:"temporal" json:"temporal,omitempty"`
+
 	// JSON/User-specific configuration fields
-	Providers   []Provider        `yaml:"providers,omitempty" json:"providers"`
-	ServerPort  int               `yaml:"server_port,omitempty" json:"server_port"`
-	SecretStore *secrets.Store    `yaml:"-" json:"-"`
+	Providers   []Provider     `yaml:"providers,omitempty" json:"providers"`
+	ServerPort  int            `yaml:"server_port,omitempty" json:"server_port"`
+	SecretStore *secrets.Store `yaml:"-" json:"-"`
 }
 
 // ServerConfig configures the HTTP/HTTPS server
 type ServerConfig struct {
-	HTTPPort      int           `yaml:"http_port"`
-	HTTPSPort     int           `yaml:"https_port"`
-	EnableHTTP    bool          `yaml:"enable_http"`
-	EnableHTTPS   bool          `yaml:"enable_https"`
-	TLSCertFile   string        `yaml:"tls_cert_file"`
-	TLSKeyFile    string        `yaml:"tls_key_file"`
-	ReadTimeout   time.Duration `yaml:"read_timeout"`
-	WriteTimeout  time.Duration `yaml:"write_timeout"`
-	IdleTimeout   time.Duration `yaml:"idle_timeout"`
+	HTTPPort     int           `yaml:"http_port"`
+	HTTPSPort    int           `yaml:"https_port"`
+	EnableHTTP   bool          `yaml:"enable_http"`
+	EnableHTTPS  bool          `yaml:"enable_https"`
+	TLSCertFile  string        `yaml:"tls_cert_file"`
+	TLSKeyFile   string        `yaml:"tls_key_file"`
+	ReadTimeout  time.Duration `yaml:"read_timeout"`
+	WriteTimeout time.Duration `yaml:"write_timeout"`
+	IdleTimeout  time.Duration `yaml:"idle_timeout"`
 }
 
 // DatabaseConfig configures the local storage
@@ -53,7 +61,7 @@ type DatabaseConfig struct {
 
 // BeadsConfig configures beads integration
 type BeadsConfig struct {
-	BDPath         string        `yaml:"bd_path"`          // Path to bd executable
+	BDPath         string        `yaml:"bd_path"` // Path to bd executable
 	AutoSync       bool          `yaml:"auto_sync"`
 	SyncInterval   time.Duration `yaml:"sync_interval"`
 	CompactOldDays int           `yaml:"compact_old_days"` // Days before compacting closed beads
@@ -90,12 +98,13 @@ type TemporalConfig struct {
 
 // ProjectConfig represents a project configuration
 type ProjectConfig struct {
-	ID        string            `yaml:"id"`
-	Name      string            `yaml:"name"`
-	GitRepo   string            `yaml:"git_repo"`
-	Branch    string            `yaml:"branch"`
-	BeadsPath string            `yaml:"beads_path"`
-	Context   map[string]string `yaml:"context"`
+	ID          string            `yaml:"id"`
+	Name        string            `yaml:"name"`
+	GitRepo     string            `yaml:"git_repo"`
+	Branch      string            `yaml:"branch"`
+	BeadsPath   string            `yaml:"beads_path"`
+	IsPerpetual bool              `yaml:"is_perpetual" json:"is_perpetual,omitempty"`
+	Context     map[string]string `yaml:"context"`
 }
 
 // WebUIConfig configures the web interface
@@ -198,4 +207,12 @@ func DefaultConfig() *Config {
 			RefreshInterval: 5,
 		},
 	}
+}
+
+func getConfigPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(homeDir, configFileName), nil
 }

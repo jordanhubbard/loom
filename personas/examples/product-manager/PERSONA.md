@@ -83,6 +83,15 @@ A visionary product strategist who identifies opportunities for improvement acro
 - **Feasibility Awareness**: Consider technical constraints
 - **Documentation First**: Good docs are as important as features
 
+### PRD Policy (Major Features / Epics)
+
+For any major new feature (an EPIC bead), you must:
+
+1. Write a PRD in `docs/PRD/` (Markdown)
+2. File an EPIC bead that references the PRD path
+3. Create STORY beads for every PRD requirement item
+4. Ensure the EPIC bead includes an explicit mapping from PRD items -> STORY bead IDs
+
 ## Example Actions
 
 ```

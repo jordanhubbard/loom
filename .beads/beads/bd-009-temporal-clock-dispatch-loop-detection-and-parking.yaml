@@ -1,0 +1,91 @@
+id: bd-009
+type: epic
+title: P0 - Temporal-controlled clock for dispatch, loop detection, and Arbiter parked/active state
+description: |
+  Implement a Temporal-driven "clock" (durable scheduler) that ensures Arbiter
+  continuously and reliably dispatches agents to their assigned beads, reacts to
+  asynchronous work submissions, detects looping/deadlock behavior, and exposes
+  a visible "parked" state when there is no work.
+
+  Goals
+  - Arbiter wakes up on a schedule and on signals/events to:
+    - dispatch agents to beads assigned to them
+    - re-dispatch beads handed back by agents
+    - detect work loops / deadlocks and route appropriately
+  - If ALL beads in ALL open projects are closed, Arbiter transitions to
+    status: parked (visible in UI for the CEO).
+  - Any newly filed bead, or any agent waking and discovering new work,
+    transitions Arbiter out of parked state.
+
+  Requirements
+  1) Temporal-controlled clock
+     - Use Temporal to run a long-lived workflow (e.g., arbiter-clock) that
+       performs periodic polling/dispatch (and uses continue-as-new).
+     - Workflow must also accept signals for:
+       - bead.created / bead.updated
+       - agent.heartbeat / agent.woke
+       - bead.returned_for_redispatch
+     - The clock triggers Arbiter dispatch logic deterministically and reliably.
+
+  2) Guaranteed dispatch / redispatch
+     - If a bead is assigned_to an agent, Arbiter must ensure that agent is
+       scheduled/started and picks up the bead (or is marked unhealthy).
+     - If an agent hands a bead back to Arbiter for redispatch, Arbiter must
+       wake and take action.
+
+  3) Loop / deadlock detection
+     - Detect beads being handed back and forth between the same agents with
+       repeating/near-repeating comments (initial heuristic is acceptable).
+     - On loop detection:
+       - Reassign bead to project-manager persona by default
+       - If PM is one of the looping agents, escalate to CEO (bd-008)
+       - Record rationale in bead context/comments.
+
+  4) Parked/active status surfaced in UI
+     - Add Arbiter system status (active|parked) to UI/API.
+     - When parked, CEO can see that Arbiter is idle.
+     - Any new work event flips status back to active.
+
+  Suggested Implementation
+  - Add a new Temporal workflow: ArbiterClockWorkflow
+    - Runs periodic tick (e.g., every 30s)
+    - Exposes signals for asynchronous triggers
+    - On each tick or signal:
+      - scan open projects
+      - compute open-work set (non-closed beads)
+      - update arbiter status parked/active
+      - run dispatch and loop detection actions
+  - Add a small system-status store (in-memory + optional persistence) and API:
+    - GET /api/v1/system/status
+  - Add UI widget in header to show status.
+
+  Acceptance Criteria
+  - Arbiter reliably dispatches assigned beads without manual intervention.
+  - Redispatch occurs promptly when bead is returned.
+  - Looping beads are detected and reassigned/escalated.
+  - Arbiter shows parked state in UI when no open work exists.
+  - Any new bead/event transitions Arbiter to active and dispatch resumes.
+
+status: closed
+priority: 0
+project_id: arbiter
+assigned_to: null
+blocked_by: []
+blocks: []
+parent: null
+children: []
+tags:
+  - p0
+  - temporal
+  - scheduler
+  - dispatch
+  - deadlock
+  - loop-detection
+  - system-status
+created_at: 2026-01-19T06:27:25Z
+updated_at: 2026-01-19T08:10:00Z
+closed_at: 2026-01-19T08:10:00Z
+context:
+  source: user-request
+  related_beads:
+    - bd-008

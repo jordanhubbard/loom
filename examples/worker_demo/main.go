@@ -68,13 +68,13 @@ func main() {
 	// Step 2: Create worker manager
 	fmt.Println("Step 2: Creating worker manager...")
 	maxWorkers := 5
-	workerManager := agent.NewWorkerManager(maxWorkers, registry)
+	workerManager := agent.NewWorkerManager(maxWorkers, registry, nil)
 	fmt.Printf("✓ Worker manager created (max workers: %d)\n", maxWorkers)
 	fmt.Println()
 
 	// Step 3: Define agent personas
 	fmt.Println("Step 3: Defining agent personas...")
-	
+
 	codeReviewerPersona := &models.Persona{
 		Name:      "Code Reviewer",
 		Character: "A thorough, security-conscious code reviewer",
@@ -142,7 +142,7 @@ func main() {
 
 	// Step 6: Create and assign tasks
 	fmt.Println("Step 6: Creating tasks...")
-	
+
 	reviewTask := &worker.Task{
 		ID:          "task-review-001",
 		Description: "Review the authentication module for security vulnerabilities",
@@ -166,7 +166,7 @@ func main() {
 	fmt.Println("Step 7: Task execution demonstration...")
 	if apiKey != "mock-key" {
 		fmt.Println("Executing tasks (this will make API calls)...")
-		
+
 		// Execute review task
 		fmt.Printf("  Executing: %s\n", reviewTask.Description)
 		taskCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -198,7 +198,7 @@ func main() {
 	fmt.Println("Step 9: Cleaning up...")
 	workerManager.StopAgent(reviewer.ID)
 	fmt.Printf("✓ Stopped agent: %s\n", reviewer.Name)
-	
+
 	workerManager.StopAgent(executor.ID)
 	fmt.Printf("✓ Stopped agent: %s\n", executor.Name)
 	fmt.Println()

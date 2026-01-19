@@ -27,14 +27,14 @@ func (s *Server) Start() error {
 	log.Printf("Arbiter server starting on %s", addr)
 	log.Println("Note: This is a stub server. Full server implementation pending.")
 	log.Println("The worker system is available via the WorkerManager API.")
-	
+
 	// Simple health check endpoint
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok","message":"Arbiter worker system is ready"}`))
 	})
-	
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)

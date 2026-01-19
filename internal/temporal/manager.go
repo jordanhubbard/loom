@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
@@ -53,6 +54,7 @@ func NewManager(cfg *config.TemporalConfig) (*Manager, error) {
 	w.RegisterWorkflow(workflows.AgentLifecycleWorkflow)
 	w.RegisterWorkflow(workflows.BeadProcessingWorkflow)
 	w.RegisterWorkflow(workflows.DecisionWorkflow)
+	w.RegisterWorkflow(workflows.DispatcherWorkflow)
 	w.RegisterWorkflow(eventbus.EventAggregatorWorkflow)
 
 	// Register activities
@@ -73,10 +75,20 @@ func NewManager(cfg *config.TemporalConfig) (*Manager, error) {
 	}, nil
 }
 
+// RegisterActivity registers additional activities before the worker starts.
+func (m *Manager) RegisterActivity(a interface{}) {
+	m.worker.RegisterActivity(a)
+}
+
+// RegisterWorkflow registers additional workflows before the worker starts.
+func (m *Manager) RegisterWorkflow(wf interface{}) {
+	m.worker.RegisterWorkflow(wf)
+}
+
 // Start starts the Temporal worker
 func (m *Manager) Start() error {
 	log.Println("Starting Temporal worker...")
-	
+
 	// Start worker in a goroutine
 	go func() {
 		if err := m.worker.Run(worker.InterruptCh()); err != nil {
@@ -91,9 +103,9 @@ func (m *Manager) Start() error {
 // Stop stops the Temporal manager
 func (m *Manager) Stop() {
 	log.Println("Stopping Temporal manager...")
-	
+
 	m.cancel()
-	
+
 	if m.worker != nil {
 		m.worker.Stop()
 	}
@@ -122,10 +134,10 @@ func (m *Manager) GetEventBus() *eventbus.EventBus {
 // StartAgentWorkflow starts an agent lifecycle workflow
 func (m *Manager) StartAgentWorkflow(ctx context.Context, agentID, projectID, personaName, name string) error {
 	workflowOptions := client.StartWorkflowOptions{
-		ID:                    fmt.Sprintf("agent-%s", agentID),
-		TaskQueue:             m.config.TaskQueue,
-		WorkflowTaskTimeout:   m.config.WorkflowTaskTimeout,
-		WorkflowRunTimeout:    m.config.WorkflowExecutionTimeout,
+		ID:                  fmt.Sprintf("agent-%s", agentID),
+		TaskQueue:           m.config.TaskQueue,
+		WorkflowTaskTimeout: m.config.WorkflowTaskTimeout,
+		WorkflowRunTimeout:  m.config.WorkflowExecutionTimeout,
 	}
 
 	input := workflows.AgentLifecycleWorkflowInput{
@@ -147,10 +159,10 @@ func (m *Manager) StartAgentWorkflow(ctx context.Context, agentID, projectID, pe
 // StartBeadWorkflow starts a bead processing workflow
 func (m *Manager) StartBeadWorkflow(ctx context.Context, beadID, projectID, title, description string, priority int, beadType string) error {
 	workflowOptions := client.StartWorkflowOptions{
-		ID:                    fmt.Sprintf("bead-%s", beadID),
-		TaskQueue:             m.config.TaskQueue,
-		WorkflowTaskTimeout:   m.config.WorkflowTaskTimeout,
-		WorkflowRunTimeout:    m.config.WorkflowExecutionTimeout,
+		ID:                  fmt.Sprintf("bead-%s", beadID),
+		TaskQueue:           m.config.TaskQueue,
+		WorkflowTaskTimeout: m.config.WorkflowTaskTimeout,
+		WorkflowRunTimeout:  m.config.WorkflowExecutionTimeout,
 	}
 
 	input := workflows.BeadProcessingWorkflowInput{
@@ -174,10 +186,10 @@ func (m *Manager) StartBeadWorkflow(ctx context.Context, beadID, projectID, titl
 // StartDecisionWorkflow starts a decision approval workflow
 func (m *Manager) StartDecisionWorkflow(ctx context.Context, decisionID, projectID, question, requesterID string, options []string) error {
 	workflowOptions := client.StartWorkflowOptions{
-		ID:                    fmt.Sprintf("decision-%s", decisionID),
-		TaskQueue:             m.config.TaskQueue,
-		WorkflowTaskTimeout:   m.config.WorkflowTaskTimeout,
-		WorkflowRunTimeout:    m.config.WorkflowExecutionTimeout,
+		ID:                  fmt.Sprintf("decision-%s", decisionID),
+		TaskQueue:           m.config.TaskQueue,
+		WorkflowTaskTimeout: m.config.WorkflowTaskTimeout,
+		WorkflowRunTimeout:  m.config.WorkflowExecutionTimeout,
 	}
 
 	input := workflows.DecisionWorkflowInput{
@@ -194,6 +206,37 @@ func (m *Manager) StartDecisionWorkflow(ctx context.Context, decisionID, project
 	}
 
 	log.Printf("Started decision workflow for decision %s", decisionID)
+	return nil
+}
+
+// StartDispatcherWorkflow starts the periodic dispatch loop workflow.
+func (m *Manager) StartDispatcherWorkflow(ctx context.Context, projectID string, interval time.Duration) error {
+	workflowID := "dispatcher-global"
+	if projectID != "" {
+		workflowID = fmt.Sprintf("dispatcher-%s", projectID)
+	}
+	workflowOptions := client.StartWorkflowOptions{
+		ID:                  workflowID,
+		TaskQueue:           m.config.TaskQueue,
+		WorkflowTaskTimeout: m.config.WorkflowTaskTimeout,
+		WorkflowRunTimeout:  0, // run indefinitely
+	}
+
+	input := workflows.DispatcherWorkflowInput{
+		ProjectID: projectID,
+		Interval:  interval,
+	}
+
+	_, err := m.client.ExecuteWorkflow(ctx, workflowOptions, workflows.DispatcherWorkflow, input)
+	if err != nil {
+		return fmt.Errorf("failed to start dispatcher workflow: %w", err)
+	}
+
+	if projectID == "" {
+		log.Printf("Started dispatcher workflow for ALL projects")
+	} else {
+		log.Printf("Started dispatcher workflow for project %s", projectID)
+	}
 	return nil
 }
 

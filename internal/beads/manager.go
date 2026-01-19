@@ -20,6 +20,7 @@ type Manager struct {
 	beadsPath string
 	mu        sync.RWMutex
 	beads     map[string]*models.Bead
+	beadFiles map[string]string
 	workGraph *models.WorkGraph
 	nextID    int // For generating IDs when bd CLI is not available
 }
@@ -30,6 +31,7 @@ func NewManager(bdPath string) *Manager {
 		bdPath:    bdPath,
 		beadsPath: ".beads",
 		beads:     make(map[string]*models.Bead),
+		beadFiles: make(map[string]string),
 		workGraph: &models.WorkGraph{
 			Beads:     make(map[string]*models.Bead),
 			Edges:     []models.Edge{},
@@ -37,6 +39,16 @@ func NewManager(bdPath string) *Manager {
 		},
 		nextID: 1,
 	}
+}
+
+// Reset clears cached beads and work graph state.
+func (m *Manager) Reset() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.beads = make(map[string]*models.Bead)
+	m.beadFiles = make(map[string]string)
+	m.workGraph = &models.WorkGraph{Beads: make(map[string]*models.Bead), Edges: []models.Edge{}, UpdatedAt: time.Now()}
+	m.nextID = 1
 }
 
 // SetBeadsPath sets the path to the beads directory
@@ -55,14 +67,14 @@ func (m *Manager) CreateBead(title, description string, priority models.BeadPrio
 	// Try bd CLI first if available
 	if m.bdPath != "" {
 		args := []string{"create", title, "-p", fmt.Sprintf("%d", priority)}
-		
+
 		if description != "" {
 			args = append(args, "-d", description)
 		}
 
 		cmd := exec.Command(m.bdPath, args...)
 		output, err := cmd.CombinedOutput()
-		
+
 		if err == nil {
 			// Parse output to get bead ID
 			outputStr := string(output)
@@ -75,7 +87,7 @@ func (m *Manager) CreateBead(title, description string, priority models.BeadPrio
 		// Generate a new ID
 		beadID = fmt.Sprintf("bd-%03d", m.nextID)
 		m.nextID++
-		
+
 		// Check for existing beads to avoid ID collision
 		for {
 			if _, exists := m.beads[beadID]; !exists {
@@ -135,7 +147,7 @@ func (m *Manager) ListBeads(filters map[string]interface{}) ([]*models.Bead, err
 	// For now, return from cache with basic filtering
 
 	beads := make([]*models.Bead, 0, len(m.beads))
-	
+
 	for _, bead := range m.beads {
 		if m.matchesFilters(bead, filters) {
 			beads = append(beads, bead)
@@ -164,11 +176,22 @@ func (m *Manager) UpdateBead(id string, updates map[string]interface{}) error {
 			bead.ClosedAt = &now
 		}
 	}
+	if priority, ok := updates["priority"].(models.BeadPriority); ok {
+		bead.Priority = priority
+	}
 	if assignedTo, ok := updates["assigned_to"].(string); ok {
 		bead.AssignedTo = assignedTo
 	}
 	if description, ok := updates["description"].(string); ok {
 		bead.Description = description
+	}
+	if ctxUpdates, ok := updates["context"].(map[string]string); ok {
+		if bead.Context == nil {
+			bead.Context = make(map[string]string)
+		}
+		for k, v := range ctxUpdates {
+			bead.Context[k] = v
+		}
 	}
 
 	bead.UpdatedAt = time.Now()
@@ -199,6 +222,10 @@ func (m *Manager) ClaimBead(beadID, agentID string) error {
 	bead.AssignedTo = agentID
 	bead.Status = models.BeadStatusInProgress
 	bead.UpdatedAt = time.Now()
+
+	if err := m.SaveBeadToFilesystem(bead, m.beadsPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to save bead to filesystem: %v\n", err)
+	}
 
 	return nil
 }
@@ -259,7 +286,7 @@ func (m *Manager) GetReadyBeads(projectID string) ([]*models.Bead, error) {
 			continue
 		}
 
-		if bead.Status != models.BeadStatusOpen {
+		if bead.Status != models.BeadStatusOpen && bead.Status != models.BeadStatusInProgress {
 			continue
 		}
 
@@ -378,19 +405,19 @@ func (m *Manager) matchesFilters(bead *models.Bead, filters map[string]interface
 			return false
 		}
 	}
-	
+
 	if status, ok := filters["status"].(models.BeadStatus); ok {
 		if bead.Status != status {
 			return false
 		}
 	}
-	
+
 	if beadType, ok := filters["type"].(string); ok {
 		if bead.Type != beadType {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -400,7 +427,7 @@ func (m *Manager) LoadBeadsFromFilesystem(beadsPath string) error {
 	defer m.mu.Unlock()
 
 	beadsDir := filepath.Join(beadsPath, "beads")
-	
+
 	// Check if directory exists
 	if _, err := os.Stat(beadsDir); os.IsNotExist(err) {
 		return nil // No beads directory, skip silently
@@ -434,6 +461,7 @@ func (m *Manager) LoadBeadsFromFilesystem(beadsPath string) error {
 		// Add to internal cache
 		m.beads[bead.ID] = &bead
 		m.workGraph.Beads[bead.ID] = &bead
+		m.beadFiles[bead.ID] = beadPath
 		loadedCount++
 	}
 
@@ -448,15 +476,23 @@ func (m *Manager) LoadBeadsFromFilesystem(beadsPath string) error {
 // SaveBeadToFilesystem saves a bead to the filesystem
 func (m *Manager) SaveBeadToFilesystem(bead *models.Bead, beadsPath string) error {
 	beadsDir := filepath.Join(beadsPath, "beads")
-	
+
 	// Ensure directory exists
 	if err := os.MkdirAll(beadsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create beads directory: %w", err)
 	}
 
-	// Generate filename from bead ID and title
-	filename := fmt.Sprintf("%s-%s.yaml", bead.ID, sanitizeFilename(bead.Title))
-	beadPath := filepath.Join(beadsDir, filename)
+	// Preserve existing bead file path if we loaded it from disk, to avoid creating duplicates.
+	beadPath := ""
+	if existing, ok := m.beadFiles[bead.ID]; ok && existing != "" {
+		beadPath = existing
+	}
+	if beadPath == "" {
+		// Generate filename from bead ID and title
+		filename := fmt.Sprintf("%s-%s.yaml", bead.ID, sanitizeFilename(bead.Title))
+		beadPath = filepath.Join(beadsDir, filename)
+		m.beadFiles[bead.ID] = beadPath
+	}
 
 	// Marshal to YAML
 	data, err := yaml.Marshal(bead)

@@ -21,6 +21,13 @@ func NewManager() *Manager {
 	}
 }
 
+// Clear removes all projects from memory.
+func (m *Manager) Clear() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.projects = make(map[string]*models.Project)
+}
+
 // CreateProject creates a new project
 func (m *Manager) CreateProject(name, gitRepo, branch, beadsPath string, context map[string]string) (*models.Project, error) {
 	m.mu.Lock()
@@ -93,11 +100,23 @@ func (m *Manager) UpdateProject(id string, updates map[string]interface{}) error
 	if name, ok := updates["name"].(string); ok {
 		project.Name = name
 	}
+	if gitRepo, ok := updates["git_repo"].(string); ok {
+		project.GitRepo = gitRepo
+	}
 	if branch, ok := updates["branch"].(string); ok {
 		project.Branch = branch
 	}
+	if beadsPath, ok := updates["beads_path"].(string); ok {
+		project.BeadsPath = beadsPath
+	}
 	if context, ok := updates["context"].(map[string]string); ok {
 		project.Context = context
+	}
+	if isPerpetual, ok := updates["is_perpetual"].(bool); ok {
+		project.IsPerpetual = isPerpetual
+	}
+	if status, ok := updates["status"].(string); ok {
+		project.Status = models.ProjectStatus(status)
 	}
 
 	project.UpdatedAt = time.Now()

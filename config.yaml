@@ -39,10 +39,11 @@ security:
 
 projects:
   - id: arbiter
-    name: Arbiter Repository
-    git_repo: /home/runner/work/arbiter/arbiter
-    branch: copilot/initialize-beads-system
+    name: Arbiter
+    git_repo: .
+    branch: main
     beads_path: .beads
+    is_perpetual: true
     context:
       build_command: "make build"
       test_command: "make test"

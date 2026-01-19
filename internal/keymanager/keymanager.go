@@ -20,12 +20,12 @@ import (
 
 // KeyEntry represents an encrypted credential entry
 type KeyEntry struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	EncryptedData string  `json:"encrypted_data"` // Base64 encoded encrypted key
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID            string    `json:"id"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	EncryptedData string    `json:"encrypted_data"` // Base64 encoded encrypted key
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // KeyStore represents the encrypted key storage
@@ -35,11 +35,11 @@ type KeyStore struct {
 
 // KeyManager manages secure storage and retrieval of provider credentials
 type KeyManager struct {
-	storePath  string
-	password   []byte
-	store      *KeyStore
-	mu         sync.RWMutex
-	unlocked   bool
+	storePath string
+	password  []byte
+	store     *KeyStore
+	mu        sync.RWMutex
+	unlocked  bool
 }
 
 const (
@@ -66,7 +66,7 @@ func (km *KeyManager) Unlock(password string) error {
 
 	// Derive encryption key from password using PBKDF2
 	km.password = []byte(password)
-	
+
 	// Try to load existing store
 	if err := km.loadStore(); err != nil {
 		// If store doesn't exist, initialize a new one
@@ -82,7 +82,7 @@ func (km *KeyManager) Unlock(password string) error {
 			return fmt.Errorf("failed to unlock key store: %w", err)
 		}
 	}
-	
+
 	km.unlocked = true
 	return nil
 }

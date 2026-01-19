@@ -27,7 +27,7 @@ func NewManager(personaDir string) *Manager {
 // LoadPersona loads a persona from a directory
 func (m *Manager) LoadPersona(name string) (*models.Persona, error) {
 	personaPath := filepath.Join(m.personaDir, name)
-	
+
 	// Check if cached
 	if persona, ok := m.personas[name]; ok {
 		return persona, nil
@@ -58,7 +58,7 @@ func (m *Manager) LoadPersona(name string) (*models.Persona, error) {
 
 	// Parse PERSONA.md sections
 	m.parsePersonaFile(persona, string(personaContent))
-	
+
 	// Parse AI_START_HERE.md sections
 	m.parseInstructionsFile(persona, string(instructionsContent))
 
@@ -71,7 +71,7 @@ func (m *Manager) LoadPersona(name string) (*models.Persona, error) {
 // parsePersonaFile parses PERSONA.md content
 func (m *Manager) parsePersonaFile(persona *models.Persona, content string) {
 	sections := m.parseSections(content)
-	
+
 	if val, ok := sections["Character"]; ok {
 		persona.Character = val
 	}
@@ -90,7 +90,7 @@ func (m *Manager) parsePersonaFile(persona *models.Persona, content string) {
 	if val, ok := sections["Collaboration"]; ok {
 		persona.Collaboration = val
 	}
-	
+
 	// Parse lists
 	if val, ok := sections["Focus Areas"]; ok {
 		persona.FocusAreas = m.parseList(val)
@@ -106,7 +106,7 @@ func (m *Manager) parsePersonaFile(persona *models.Persona, content string) {
 // parseInstructionsFile parses AI_START_HERE.md content
 func (m *Manager) parseInstructionsFile(persona *models.Persona, content string) {
 	sections := m.parseSections(content)
-	
+
 	if val, ok := sections["Your Mission"]; ok {
 		persona.Mission = val
 	}
@@ -128,10 +128,10 @@ func (m *Manager) parseInstructionsFile(persona *models.Persona, content string)
 func (m *Manager) parseSections(content string) map[string]string {
 	sections := make(map[string]string)
 	lines := strings.Split(content, "\n")
-	
+
 	var currentSection string
 	var currentContent []string
-	
+
 	for _, line := range lines {
 		if strings.HasPrefix(line, "## ") {
 			// Save previous section
@@ -145,12 +145,12 @@ func (m *Manager) parseSections(content string) map[string]string {
 			currentContent = append(currentContent, line)
 		}
 	}
-	
+
 	// Save last section
 	if currentSection != "" {
 		sections[currentSection] = strings.TrimSpace(strings.Join(currentContent, "\n"))
 	}
-	
+
 	return sections
 }
 
@@ -158,7 +158,7 @@ func (m *Manager) parseSections(content string) map[string]string {
 func (m *Manager) parseList(content string) []string {
 	var items []string
 	lines := strings.Split(content, "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") {
@@ -169,7 +169,7 @@ func (m *Manager) parseList(content string) []string {
 			items = append(items, strings.TrimSpace(item))
 		}
 	}
-	
+
 	return items
 }
 
@@ -209,21 +209,21 @@ func (m *Manager) SavePersona(persona *models.Persona) error {
 // generatePersonaContent generates PERSONA.md content from a persona
 func (m *Manager) generatePersonaContent(p *models.Persona) string {
 	var sb strings.Builder
-	
+
 	sb.WriteString(fmt.Sprintf("# %s - Agent Persona\n\n", p.Name))
-	
+
 	if p.Character != "" {
 		sb.WriteString("## Character\n\n")
 		sb.WriteString(p.Character)
 		sb.WriteString("\n\n")
 	}
-	
+
 	if p.Tone != "" {
 		sb.WriteString("## Tone\n\n")
 		sb.WriteString(p.Tone)
 		sb.WriteString("\n\n")
 	}
-	
+
 	if len(p.FocusAreas) > 0 {
 		sb.WriteString("## Focus Areas\n\n")
 		for i, area := range p.FocusAreas {
@@ -231,12 +231,12 @@ func (m *Manager) generatePersonaContent(p *models.Persona) string {
 		}
 		sb.WriteString("\n")
 	}
-	
+
 	if p.AutonomyLevel != "" {
 		sb.WriteString("## Autonomy Level\n\n")
 		sb.WriteString(fmt.Sprintf("**Level:** %s\n\n", p.AutonomyLevel))
 	}
-	
+
 	if len(p.Capabilities) > 0 {
 		sb.WriteString("## Capabilities\n\n")
 		for _, cap := range p.Capabilities {
@@ -244,25 +244,25 @@ func (m *Manager) generatePersonaContent(p *models.Persona) string {
 		}
 		sb.WriteString("\n")
 	}
-	
+
 	if p.DecisionMaking != "" {
 		sb.WriteString("## Decision Making\n\n")
 		sb.WriteString(p.DecisionMaking)
 		sb.WriteString("\n\n")
 	}
-	
+
 	if p.Housekeeping != "" {
 		sb.WriteString("## Persistence & Housekeeping\n\n")
 		sb.WriteString(p.Housekeeping)
 		sb.WriteString("\n\n")
 	}
-	
+
 	if p.Collaboration != "" {
 		sb.WriteString("## Collaboration\n\n")
 		sb.WriteString(p.Collaboration)
 		sb.WriteString("\n\n")
 	}
-	
+
 	if len(p.Standards) > 0 {
 		sb.WriteString("## Standards & Conventions\n\n")
 		for _, std := range p.Standards {
@@ -270,49 +270,49 @@ func (m *Manager) generatePersonaContent(p *models.Persona) string {
 		}
 		sb.WriteString("\n")
 	}
-	
+
 	return sb.String()
 }
 
 // generateInstructionsContent generates AI_START_HERE.md content
 func (m *Manager) generateInstructionsContent(p *models.Persona) string {
 	var sb strings.Builder
-	
+
 	sb.WriteString(fmt.Sprintf("# %s - Agent Instructions\n\n", p.Name))
-	
+
 	sb.WriteString("## Your Identity\n\n")
 	sb.WriteString(fmt.Sprintf("You are **%s**, an autonomous agent working within the Arbiter orchestration system.\n\n", p.Name))
-	
+
 	if p.Mission != "" {
 		sb.WriteString("## Your Mission\n\n")
 		sb.WriteString(p.Mission)
 		sb.WriteString("\n\n")
 	}
-	
+
 	if p.Personality != "" {
 		sb.WriteString("## Your Personality\n\n")
 		sb.WriteString(p.Personality)
 		sb.WriteString("\n\n")
 	}
-	
+
 	if p.AutonomyInstructions != "" {
 		sb.WriteString("## Your Autonomy\n\n")
 		sb.WriteString(p.AutonomyInstructions)
 		sb.WriteString("\n\n")
 	}
-	
+
 	if p.DecisionInstructions != "" {
 		sb.WriteString("## Decision Points\n\n")
 		sb.WriteString(p.DecisionInstructions)
 		sb.WriteString("\n\n")
 	}
-	
+
 	if p.PersistentTasks != "" {
 		sb.WriteString("## Persistent Tasks\n\n")
 		sb.WriteString(p.PersistentTasks)
 		sb.WriteString("\n\n")
 	}
-	
+
 	return sb.String()
 }
 
@@ -329,7 +329,7 @@ func (m *Manager) ListPersonas() ([]string, error) {
 			// Check if it has the required files
 			personaFile := filepath.Join(m.personaDir, entry.Name(), "PERSONA.md")
 			instructionsFile := filepath.Join(m.personaDir, entry.Name(), "AI_START_HERE.md")
-			
+
 			if _, err := os.Stat(personaFile); err == nil {
 				if _, err := os.Stat(instructionsFile); err == nil {
 					personas = append(personas, entry.Name())

@@ -57,9 +57,9 @@ const (
 type AgentStatus string
 
 const (
-	AgentStatusIdle     AgentStatus = "idle"
-	AgentStatusBusy     AgentStatus = "busy"
-	AgentStatusOffline  AgentStatus = "offline"
+	AgentStatusIdle    AgentStatus = "idle"
+	AgentStatusBusy    AgentStatus = "busy"
+	AgentStatusOffline AgentStatus = "offline"
 )
 
 // AgentInterface defines the contract for all agents

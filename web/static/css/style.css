@@ -8,6 +8,11 @@
     --border-color: #bdc3c7;
     --text-color: #2c3e50;
     --card-bg: #ffffff;
+
+    --space-1: 0.5rem;
+    --space-2: 1rem;
+    --space-3: 1.5rem;
+    --space-4: 2rem;
 }
 
 * {
@@ -23,11 +28,48 @@ body {
     background-color: var(--light-bg);
 }
 
+.small {
+    font-size: 0.85rem;
+    color: #4b5563;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+.skip-link {
+    position: absolute;
+    left: -999px;
+    top: 0;
+    background: var(--card-bg);
+    color: var(--text-color);
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    border: 2px solid var(--primary-color);
+    z-index: 2000;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+    left: 1rem;
+    top: 1rem;
+}
+
 header {
     background-color: var(--dark-bg);
     color: white;
     padding: 1rem 2rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.system-status {
+    margin: 0.25rem 0 0.75rem 0;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.system-status .badge {
+    margin-right: 0.5rem;
 }
 
 header h1 {
@@ -37,6 +79,18 @@ header h1 {
 nav {
     display: flex;
     gap: 1.5rem;
+}
+
+.nav-list {
+    list-style: none;
+    display: flex;
+    gap: 1.5rem;
+    padding: 0;
+    margin: 0;
+}
+
+.nav-list li {
+    margin: 0;
 }
 
 nav a {
@@ -49,6 +103,19 @@ nav a {
 
 nav a:hover {
     background-color: rgba(255,255,255,0.1);
+}
+
+nav a[aria-current="page"] {
+    background-color: rgba(255,255,255,0.2);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 3px solid var(--warning-color);
+    outline-offset: 2px;
 }
 
 main {
@@ -70,6 +137,46 @@ section h2 {
     color: var(--primary-color);
     border-bottom: 2px solid var(--primary-color);
     padding-bottom: 0.5rem;
+}
+
+.project-view-details {
+    margin-bottom: var(--space-3);
+    color: #374151;
+}
+
+.assignment-board {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+}
+
+.assignment-card {
+    background-color: var(--light-bg);
+    padding: 1rem;
+    border-radius: 8px;
+    border: 2px solid var(--border-color);
+}
+
+.toolbar {
+    margin-bottom: var(--space-2);
+    padding: var(--space-2);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--light-bg);
+}
+
+.toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: flex-end;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 180px;
 }
 
 /* Kanban Board */
@@ -94,7 +201,7 @@ section h2 {
 .bead-list {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.75rem;
 }
 
 .bead-card {
@@ -104,6 +211,14 @@ section h2 {
     border-left: 4px solid var(--primary-color);
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
+
+    display: block;
+    width: 100%;
+    text-align: left;
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+    font: inherit;
 }
 
 .bead-card:hover {
@@ -132,7 +247,60 @@ section h2 {
     font-size: 0.85rem;
     color: #7f8c8d;
     display: flex;
-    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: #eef2f6;
+    color: var(--text-color);
+}
+
+.badge.priority-0 {
+    background: #ffe5e5;
+    color: #7a1a10;
+}
+
+.badge.priority-1 {
+    background: #fff3e0;
+    color: #7a4d00;
+}
+
+.badge.priority-2 {
+    background: #e8f3ff;
+    color: #0c3b63;
+}
+
+.badge.priority-3 {
+    background: #eef2f6;
+    color: #2c3e50;
+}
+
+.empty-state {
+    border: 2px dashed var(--border-color);
+    background: rgba(255, 255, 255, 0.5);
+    padding: var(--space-3);
+    border-radius: 8px;
+    text-align: center;
+    color: #4b5563;
+}
+
+.empty-state h4 {
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    margin-bottom: 1rem;
 }
 
 /* Agents */
@@ -140,6 +308,34 @@ section h2 {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1rem;
+}
+
+/* Providers */
+.provider-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+}
+
+.provider-card {
+    background-color: var(--light-bg);
+    padding: 1rem;
+    border-radius: 8px;
+    border: 2px solid var(--border-color);
+}
+
+.provider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.provider-actions {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
 }
 
 .agent-card {
@@ -227,6 +423,41 @@ section h2 {
     gap: 0.5rem;
 }
 
+.modal-actions {
+    margin-top: var(--space-2);
+    display: flex;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+}
+
+.toast-container {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: min(420px, calc(100vw - 2rem));
+}
+
+.toast {
+    background: var(--dark-bg);
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    border-left: 4px solid var(--primary-color);
+}
+
+.toast.success {
+    border-left-color: var(--secondary-color);
+}
+
+.toast.error {
+    border-left-color: var(--danger-color);
+}
+
 /* Controls */
 .controls {
     margin-bottom: 1rem;
@@ -241,6 +472,18 @@ button {
     cursor: pointer;
     font-size: 1rem;
     transition: background-color 0.3s;
+}
+
+button,
+nav a,
+input[type="text"],
+select {
+    min-height: 44px;
+}
+
+button[disabled] {
+    opacity: 0.7;
+    cursor: not-allowed;
 }
 
 button:hover {
@@ -284,6 +527,8 @@ button.danger:hover {
     width: 80%;
     max-width: 600px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    max-height: 80vh;
+    overflow: auto;
 }
 
 .modal-content.large {
@@ -291,11 +536,16 @@ button.danger:hover {
 }
 
 .close {
+
+    background: transparent;
     color: #aaa;
+    border: none;
     float: right;
     font-size: 28px;
     font-weight: bold;
     cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    line-height: 1;
 }
 
 .close:hover,
@@ -347,6 +597,13 @@ textarea {
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
+.persona-card {
+    border: none;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+}
+
 .project-card:hover,
 .persona-card:hover {
     transform: translateY(-2px);
@@ -372,6 +629,20 @@ footer a:hover {
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+    main {
+        padding: 1.25rem;
+    }
+
+    section {
+        padding: 1.25rem;
+    }
+
+    .kanban-column {
+        min-height: 260px;
+    }
+}
+
 @media (max-width: 768px) {
     .kanban-container {
         grid-template-columns: 1fr;
@@ -379,5 +650,34 @@ footer a:hover {
     
     nav {
         flex-direction: column;
+    }
+
+    .nav-list {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    header {
+        padding: 1rem;
+    }
+
+    nav a {
+        padding: 0.5rem 0.75rem;
+    }
+
+    .toolbar {
+        padding: 0.75rem;
+    }
+
+    .field {
+        min-width: 140px;
+    }
+
+    .modal-content {
+        width: calc(100% - 1.5rem);
+        margin: 15% auto;
+        padding: 1.25rem;
     }
 }

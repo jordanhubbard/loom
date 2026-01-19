@@ -1,0 +1,50 @@
+id: bd-011
+type: task
+title: P1 (sticky) Maintain continuously refreshed architecture diagram
+description: |
+  This is a sticky, ongoing bead.
+
+  Goal
+  - Maintain an up-to-date architecture diagram that reflects the current
+    Arbiter system.
+
+  Trigger conditions (update is required when ANY occur)
+  - A new service is added
+  - A new agent type or core agent lifecycle feature is added
+  - A new persona is added or persona responsibilities materially change
+  - A new feature is added that is tracked as an EPIC bead (must update diagram)
+
+  Requirements
+  - Architecture diagram must be refreshed as necessary and remain accurate.
+  - Diagram should reflect:
+    - Services (API server, Temporal, DB/key manager, UI, etc.)
+    - Major subsystems and data flow (beads, decisions, dispatch, event bus)
+    - How personas/agents interact with beads and decisions
+  - Store the diagram in a stable location under docs/ (e.g., docs/architecture/)
+    and/or update ARCHITECTURE.md if that is the canonical home.
+
+  Conventions
+  - Prefer a text-based diagram that is easy to diff (Mermaid or ASCII) unless a
+    rendered asset is required.
+  - The diagram should include the date of last update.
+
+status: open
+priority: 1
+project_id: arbiter
+assigned_to: null
+blocked_by: []
+blocks: []
+parent: null
+children: []
+tags:
+  - p1
+  - sticky
+  - architecture
+  - diagram
+  - docs
+created_at: 2026-01-19T06:36:12Z
+updated_at: 2026-01-19T06:36:12Z
+closed_at: null
+context:
+  source: user-request
+  note: "This bead should not be closed; it represents an ongoing requirement."

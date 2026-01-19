@@ -7,21 +7,108 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <header>
-        <h1>🤖 Arbiter - Agent Orchestration System</h1>
-        <nav>
-            <a href="#kanban">Kanban Board</a>
-            <a href="#agents">Agents</a>
-            <a href="#decisions">Decisions</a>
-            <a href="#personas">Personas</a>
-            <a href="#projects">Projects</a>
+        <h1><span aria-hidden="true">🤖</span> Arbiter - Agent Orchestration System</h1>
+        <div id="system-status" class="system-status" aria-live="polite" aria-atomic="true"></div>
+        <nav aria-label="Primary">
+            <ul class="nav-list">
+                <li><a href="#project-viewer" aria-label="Jump to Project Viewer section">Project Viewer</a></li>
+                <li><a href="#kanban" aria-label="Jump to Kanban Board section">Kanban Board</a></li>
+                <li><a href="#providers" aria-label="Jump to Providers section">Providers</a></li>
+                <li><a href="#agents" aria-label="Jump to Agents section">Agents</a></li>
+                <li><a href="#decisions" aria-label="Jump to Decisions section">Decisions</a></li>
+                <li><a href="#personas" aria-label="Jump to Personas section">Personas</a></li>
+                <li><a href="#projects" aria-label="Jump to Projects section">Projects</a></li>
+            </ul>
         </nav>
     </header>
 
-    <main>
+    <main id="main-content">
+        <!-- Project Viewer Section -->
+        <section id="project-viewer">
+            <h2><span aria-hidden="true">📁</span> Project Viewer</h2>
+            <div class="toolbar" role="region" aria-label="Project viewer controls">
+                <div class="toolbar-row">
+                    <div class="field">
+                        <label for="project-view-select">Project</label>
+                        <select id="project-view-select"></select>
+                    </div>
+                </div>
+            </div>
+            <div id="project-view-details" class="project-view-details"></div>
+
+            <h3>Beads</h3>
+            <div class="kanban-container">
+                <div class="kanban-column">
+                    <h4>Open</h4>
+                    <div id="project-open-beads" class="bead-list"></div>
+                </div>
+                <div class="kanban-column">
+                    <h4>In Progress</h4>
+                    <div id="project-in-progress-beads" class="bead-list"></div>
+                </div>
+                <div class="kanban-column">
+                    <h4>Closed</h4>
+                    <div id="project-closed-beads" class="bead-list"></div>
+                </div>
+            </div>
+
+            <h3>Agent assignments</h3>
+            <div id="project-agent-assignments" class="assignment-board"></div>
+        </section>
+
         <!-- Kanban Board Section -->
         <section id="kanban">
-            <h2>📋 Kanban Board</h2>
+            <h2><span aria-hidden="true">📋</span> Kanban Board</h2>
+            <div class="toolbar" role="region" aria-label="Bead search and filters">
+                <div class="toolbar-row">
+                    <div class="field">
+                        <label for="bead-search">Search beads</label>
+                        <input type="text" id="bead-search" placeholder="Search by title, description, id…" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label for="bead-sort">Sort</label>
+                        <select id="bead-sort">
+                            <option value="priority">Priority</option>
+                            <option value="updated_at">Recently updated</option>
+                            <option value="title">Title</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="bead-priority">Priority</label>
+                        <select id="bead-priority">
+                            <option value="all">All</option>
+                            <option value="0">P0</option>
+                            <option value="1">P1</option>
+                            <option value="2">P2</option>
+                            <option value="3">P3</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="bead-type">Type</label>
+                        <select id="bead-type">
+                            <option value="all">All</option>
+                            <option value="task">task</option>
+                            <option value="decision">decision</option>
+                            <option value="epic">epic</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="toolbar-row">
+                    <div class="field">
+                        <label for="bead-assigned">Assigned to</label>
+                        <input type="text" id="bead-assigned" placeholder="agent id / user id…" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label for="bead-tag">Tag</label>
+                        <input type="text" id="bead-tag" placeholder="tag…" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <button type="button" class="secondary" id="bead-clear-filters">Clear filters</button>
+                    </div>
+                </div>
+            </div>
             <div class="kanban-container">
                 <div class="kanban-column">
                     <h3>Open</h3>
@@ -46,17 +133,37 @@
 
         <!-- Decision Beads Section -->
         <section id="decisions">
-            <h2>⚖️ Decision Beads</h2>
+            <h2><span aria-hidden="true">⚖️</span> Decision Beads</h2>
             <div id="decision-list" class="decision-container">
                 <!-- Decision beads will be loaded here -->
             </div>
         </section>
 
+        <!-- Providers Section -->
+        <section id="providers">
+            <h2><span aria-hidden="true">🔌</span> Providers</h2>
+            <div class="controls">
+                <button type="button" onclick="showRegisterProviderModal()" aria-haspopup="dialog">Register Provider</button>
+                <button type="button" class="secondary" onclick="bootstrapProviders()">Bootstrap puck/spark</button>
+            </div>
+            <div id="provider-list" class="provider-container">
+                <!-- Providers will be loaded here -->
+            </div>
+        </section>
+
         <!-- Agents Section -->
         <section id="agents">
-            <h2>🤖 Active Agents</h2>
+            <h2><span aria-hidden="true">🤖</span> Active Agents</h2>
             <div class="controls">
-                <button onclick="showSpawnAgentModal()">Spawn New Agent</button>
+                <button type="button" onclick="showSpawnAgentModal()" aria-haspopup="dialog" aria-controls="spawn-agent-modal">Spawn New Agent</button>
+            </div>
+            <div class="toolbar" role="region" aria-label="Agent search">
+                <div class="toolbar-row">
+                    <div class="field">
+                        <label for="agent-search">Search agents</label>
+                        <input type="text" id="agent-search" placeholder="Search by name or persona…" autocomplete="off">
+                    </div>
+                </div>
             </div>
             <div id="agent-list" class="agent-container">
                 <!-- Agents will be loaded here -->
@@ -65,7 +172,7 @@
 
         <!-- Projects Section -->
         <section id="projects">
-            <h2>📁 Projects</h2>
+            <h2><span aria-hidden="true">📁</span> Projects</h2>
             <div id="project-list" class="project-container">
                 <!-- Projects will be loaded here -->
             </div>
@@ -73,7 +180,7 @@
 
         <!-- Personas Section -->
         <section id="personas">
-            <h2>🎭 Personas</h2>
+            <h2><span aria-hidden="true">🎭</span> Personas</h2>
             <div id="persona-list" class="persona-container">
                 <!-- Personas will be loaded here -->
             </div>
@@ -81,10 +188,10 @@
     </main>
 
     <!-- Modal for spawning agents -->
-    <div id="spawn-agent-modal" class="modal">
+    <div id="spawn-agent-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="spawn-agent-modal-title" aria-hidden="true" tabindex="-1">
         <div class="modal-content">
-            <span class="close" onclick="closeSpawnAgentModal()">&times;</span>
-            <h2>Spawn New Agent</h2>
+            <button type="button" class="close" onclick="closeSpawnAgentModal()" aria-label="Close dialog">&times;</button>
+            <h2 id="spawn-agent-modal-title">Spawn New Agent</h2>
             <form id="spawn-agent-form">
                 <label for="agent-name">Agent Name (optional):</label>
                 <input type="text" id="agent-name" name="name">
@@ -98,6 +205,11 @@
                 <select id="agent-project" name="project_id" required>
                     <!-- Options loaded dynamically -->
                 </select>
+
+                <label for="agent-provider">Provider:</label>
+                <select id="agent-provider" name="provider_id" required>
+                    <!-- Options loaded dynamically -->
+                </select>
                 
                 <button type="submit">Spawn Agent</button>
             </form>
@@ -105,15 +217,27 @@
     </div>
 
     <!-- Modal for viewing/editing persona -->
-    <div id="persona-modal" class="modal">
+    <div id="persona-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="persona-modal-title" aria-hidden="true" tabindex="-1">
         <div class="modal-content large">
-            <span class="close" onclick="closePersonaModal()">&times;</span>
+            <button type="button" class="close" onclick="closePersonaModal()" aria-label="Close dialog">&times;</button>
             <h2 id="persona-modal-title">Persona Editor</h2>
             <div id="persona-editor">
                 <!-- Persona editor will be loaded here -->
             </div>
         </div>
     </div>
+
+    <!-- Generic modal for confirmations/details/forms -->
+    <div id="app-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="app-modal-title" aria-hidden="true" tabindex="-1">
+        <div class="modal-content">
+            <button type="button" class="close" onclick="closeAppModal()" aria-label="Close dialog">&times;</button>
+            <h2 id="app-modal-title">Dialog</h2>
+            <div id="app-modal-body"></div>
+            <div id="app-modal-actions" class="modal-actions"></div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <footer>
         <p>Arbiter v1.0.0 | <a href="/api/v1/health">API Health</a> | <a href="/api/openapi.yaml">OpenAPI Spec</a></p>

@@ -5,7 +5,7 @@ import (
 
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
-	
+
 	"github.com/jordanhubbard/arbiter/internal/temporal/eventbus"
 )
 
@@ -66,7 +66,7 @@ func AgentLifecycleWorkflow(ctx workflow.Context, input AgentLifecycleWorkflowIn
 
 	// Keep workflow running to handle signals
 	selector := workflow.NewSelector(ctx)
-	
+
 	// Handle shutdown signal
 	shutdownChannel := workflow.GetSignalChannel(ctx, "shutdown")
 	selector.AddReceive(shutdownChannel, func(c workflow.ReceiveChannel, more bool) {
@@ -155,7 +155,7 @@ func BeadProcessingWorkflow(ctx workflow.Context, input BeadProcessingWorkflowIn
 
 	// Keep workflow running until bead is closed
 	selector := workflow.NewSelector(ctx)
-	
+
 	// Handle status change signals
 	statusChannel := workflow.GetSignalChannel(ctx, "statusChange")
 	selector.AddReceive(statusChannel, func(c workflow.ReceiveChannel, more bool) {
@@ -198,10 +198,10 @@ func DecisionWorkflow(ctx workflow.Context, input DecisionWorkflowInput) (string
 
 	// Decision state
 	decisionState := struct {
-		Status     string
-		Decision   string
-		DeciderID  string
-		DecidedAt  time.Time
+		Status    string
+		Decision  string
+		DeciderID string
+		DecidedAt time.Time
 	}{
 		Status: "pending",
 	}
@@ -227,7 +227,7 @@ func DecisionWorkflow(ctx workflow.Context, input DecisionWorkflowInput) (string
 
 	// Wait for decision with timeout
 	selector := workflow.NewSelector(ctx)
-	
+
 	// Handle decision signal
 	decisionChannel := workflow.GetSignalChannel(ctx, "resolve")
 	selector.AddReceive(decisionChannel, func(c workflow.ReceiveChannel, more bool) {

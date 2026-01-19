@@ -31,7 +31,7 @@ func (s *Server) SetupRoutes() http.Handler {
 	if s.config.WebUI.Enabled {
 		fs := http.FileServer(http.Dir(s.config.WebUI.StaticPath))
 		mux.Handle("/static/", http.StripPrefix("/static/", fs))
-		
+
 		// Serve index.html at root
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" {
@@ -77,10 +77,25 @@ func (s *Server) SetupRoutes() http.Handler {
 	// Work graph
 	mux.HandleFunc("/api/v1/work-graph", s.handleWorkGraph)
 
+	// Providers
+	mux.HandleFunc("/api/v1/providers", s.handleProviders)
+	mux.HandleFunc("/api/v1/providers/", s.handleProvider)
+
+	// System
+	mux.HandleFunc("/api/v1/system/status", s.handleSystemStatus)
+
+	// Work (non-bead prompts)
+	mux.HandleFunc("/api/v1/work", s.handleWork)
+
+	// Configuration
+	mux.HandleFunc("/api/v1/config", s.handleConfig)
+	mux.HandleFunc("/api/v1/config/export.yaml", s.handleConfigExportYAML)
+	mux.HandleFunc("/api/v1/config/import.yaml", s.handleConfigImportYAML)
+
 	// Events (real-time updates and event bus)
 	mux.HandleFunc("/api/v1/events/stream", s.handleEventStream)
 	mux.HandleFunc("/api/v1/events/stats", s.handleGetEventStats)
-	mux.HandleFunc("/api/v1/events", s.handleGetEvents)      // GET for history
+	mux.HandleFunc("/api/v1/events", s.handleGetEvents) // GET for history
 	// POST /api/v1/events for publishing is available but should be restricted
 
 	// Apply middleware
@@ -143,16 +158,23 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip auth for health check, static files, root, and OpenAPI spec
-		if r.URL.Path == "/api/v1/health" || 
-		   r.URL.Path == "/" || 
-		   r.URL.Path == "/api/openapi.yaml" ||
-		   strings.HasPrefix(r.URL.Path, "/static/") {
+		if r.URL.Path == "/api/v1/health" ||
+			r.URL.Path == "/" ||
+			r.URL.Path == "/api/openapi.yaml" ||
+			r.URL.Path == "/api/v1/events/stream" ||
+			strings.HasPrefix(r.URL.Path, "/static/") {
 			next.ServeHTTP(w, r)
 			return
 		}
 
 		// Skip auth if disabled
 		if !s.config.Security.EnableAuth {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// If auth is enabled but no keys are configured, treat auth as disabled.
+		if len(s.config.Security.APIKeys) == 0 {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -207,12 +229,12 @@ func (s *Server) extractID(path, prefix string) string {
 	id := strings.TrimPrefix(path, prefix)
 	id = strings.TrimPrefix(id, "/")
 	id = strings.TrimSuffix(id, "/")
-	
+
 	// Handle sub-paths (e.g., /api/v1/beads/123/claim)
 	parts := strings.Split(id, "/")
 	if len(parts) > 0 {
 		return parts[0]
 	}
-	
+
 	return id
 }

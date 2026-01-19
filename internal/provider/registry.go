@@ -35,16 +35,23 @@ func NewRegistry() *Registry {
 	}
 }
 
+// Clear removes all registered providers.
+func (r *Registry) Clear() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.providers = make(map[string]*RegisteredProvider)
+}
+
 // Register registers a new provider
 func (r *Registry) Register(config *ProviderConfig) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	// Check if provider already exists
 	if _, exists := r.providers[config.ID]; exists {
 		return fmt.Errorf("provider %s already registered", config.ID)
 	}
-	
+
 	// Create protocol based on provider type
 	var protocol Protocol
 	switch config.Type {
@@ -54,13 +61,30 @@ func (r *Registry) Register(config *ProviderConfig) error {
 	default:
 		return fmt.Errorf("unsupported provider type: %s", config.Type)
 	}
-	
+
 	// Register provider
 	r.providers[config.ID] = &RegisteredProvider{
 		Config:   config,
 		Protocol: protocol,
 	}
-	
+
+	return nil
+}
+
+// Upsert registers a provider if it doesn't exist, or replaces it if it does.
+func (r *Registry) Upsert(config *ProviderConfig) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var protocol Protocol
+	switch config.Type {
+	case "openai", "anthropic", "local", "custom":
+		protocol = NewOpenAIProvider(config.Endpoint, config.APIKey)
+	default:
+		return fmt.Errorf("unsupported provider type: %s", config.Type)
+	}
+
+	r.providers[config.ID] = &RegisteredProvider{Config: config, Protocol: protocol}
 	return nil
 }
 
@@ -68,11 +92,11 @@ func (r *Registry) Register(config *ProviderConfig) error {
 func (r *Registry) Unregister(providerID string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	if _, exists := r.providers[providerID]; !exists {
 		return fmt.Errorf("provider %s not found", providerID)
 	}
-	
+
 	delete(r.providers, providerID)
 	return nil
 }
@@ -81,12 +105,12 @@ func (r *Registry) Unregister(providerID string) error {
 func (r *Registry) Get(providerID string) (*RegisteredProvider, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	provider, exists := r.providers[providerID]
 	if !exists {
 		return nil, fmt.Errorf("provider %s not found", providerID)
 	}
-	
+
 	return provider, nil
 }
 
@@ -94,12 +118,12 @@ func (r *Registry) Get(providerID string) (*RegisteredProvider, error) {
 func (r *Registry) List() []*RegisteredProvider {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	providers := make([]*RegisteredProvider, 0, len(r.providers))
 	for _, provider := range r.providers {
 		providers = append(providers, provider)
 	}
-	
+
 	return providers
 }
 
@@ -109,12 +133,12 @@ func (r *Registry) SendChatCompletion(ctx context.Context, providerID string, re
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Use default model if not specified
 	if req.Model == "" {
 		req.Model = provider.Config.Model
 	}
-	
+
 	return provider.Protocol.CreateChatCompletion(ctx, req)
 }
 
@@ -124,6 +148,6 @@ func (r *Registry) GetModels(ctx context.Context, providerID string) ([]Model, e
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return provider.Protocol.GetModels(ctx)
 }
