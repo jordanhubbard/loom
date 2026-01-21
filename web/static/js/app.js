@@ -2788,3 +2788,188 @@ async function revokeAPIKey(keyId) {
         showToast(`Failed to revoke API key: ${e.message}`, 'error');
     }
 }
+
+// Analytics Dashboard Functions
+async function loadAnalytics() {
+    const timeRange = document.getElementById('analytics-time-range').value;
+    let startTime, endTime;
+    
+    const now = new Date();
+    endTime = now.toISOString();
+    
+    switch (timeRange) {
+        case '1h':
+            startTime = new Date(now - 60 * 60 * 1000).toISOString();
+            break;
+        case '24h':
+            startTime = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+            break;
+        case '7d':
+            startTime = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+            break;
+        case '30d':
+            startTime = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+            break;
+        case 'custom':
+            startTime = document.getElementById('analytics-start-time').value;
+            endTime = document.getElementById('analytics-end-time').value;
+            if (!startTime || !endTime) {
+                showToast('Please select start and end times', 'warning');
+                return;
+            }
+            break;
+    }
+    
+    try {
+        const params = new URLSearchParams();
+        if (startTime) params.append('start_time', startTime);
+        if (endTime) params.append('end_time', endTime);
+        
+        const response = await fetch(`/api/v1/analytics/stats?${params}`, {
+            headers: {
+                'Authorization': `Bearer ${state.token}`
+            }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load analytics');
+        
+        const stats = await response.json();
+        renderAnalytics(stats);
+    } catch (error) {
+        console.error('Error loading analytics:', error);
+        showToast('Failed to load analytics: ' + error.message, 'error');
+    }
+}
+
+function renderAnalytics(stats) {
+    // Update summary cards
+    document.getElementById('analytics-total-requests').textContent = 
+        stats.total_requests.toLocaleString();
+    
+    document.getElementById('analytics-total-cost').textContent = 
+        '$' + stats.total_cost_usd.toFixed(2);
+    
+    document.getElementById('analytics-avg-latency').textContent = 
+        Math.round(stats.avg_latency_ms);
+    
+    document.getElementById('analytics-error-rate').textContent = 
+        (stats.error_rate * 100).toFixed(1);
+    
+    // Render charts
+    renderBarChart('chart-cost-by-provider', stats.cost_by_provider || {}, '$');
+    renderBarChart('chart-cost-by-user', stats.cost_by_user || {}, '$');
+    renderBarChart('chart-requests-by-provider', stats.requests_by_provider || {}, '');
+    renderBarChart('chart-requests-by-user', stats.requests_by_user || {}, '');
+    
+    // Render detailed table
+    renderAnalyticsTable(stats);
+}
+
+function renderBarChart(elementId, data, prefix = '') {
+    const container = document.getElementById(elementId);
+    if (!container) return;
+    
+    const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
+    
+    if (entries.length === 0) {
+        container.innerHTML = '<p class="small" style="text-align: center; padding: 2rem;">No data available</p>';
+        return;
+    }
+    
+    const maxValue = Math.max(...entries.map(([, value]) => value));
+    
+    container.innerHTML = entries.map(([key, value]) => {
+        const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
+        const displayValue = prefix ? `${prefix}${value.toFixed(2)}` : value;
+        
+        return `
+            <div class="chart-bar">
+                <div class="chart-bar-label" title="${key}">${truncateText(key, 15)}</div>
+                <div class="chart-bar-container">
+                    <div class="chart-bar-fill" style="width: ${percentage}%"></div>
+                </div>
+                <div class="chart-bar-value">${displayValue}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderAnalyticsTable(stats) {
+    const tbody = document.getElementById('analytics-details-table');
+    if (!tbody) return;
+    
+    const rows = [];
+    
+    // Provider rows
+    const providers = Object.keys(stats.cost_by_provider || {});
+    providers.forEach(provider => {
+        rows.push({
+            type: 'Provider',
+            name: provider,
+            requests: stats.requests_by_provider?.[provider] || 0,
+            cost: stats.cost_by_provider?.[provider] || 0
+        });
+    });
+    
+    // User rows
+    const users = Object.keys(stats.cost_by_user || {});
+    users.forEach(user => {
+        rows.push({
+            type: 'User',
+            name: user,
+            requests: stats.requests_by_user?.[user] || 0,
+            cost: stats.cost_by_user?.[user] || 0
+        });
+    });
+    
+    if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No data available</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = rows.map(row => {
+        const avgLatency = row.requests > 0 ? (stats.avg_latency_ms || 0) : 0;
+        const tokens = Math.round((stats.total_tokens || 0) * (row.requests / (stats.total_requests || 1)));
+        
+        return `
+            <tr>
+                <td>${row.type}</td>
+                <td><strong>${row.name}</strong></td>
+                <td>${row.requests.toLocaleString()}</td>
+                <td>${tokens.toLocaleString()}</td>
+                <td>$${row.cost.toFixed(2)}</td>
+                <td>${Math.round(avgLatency)}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function truncateText(text, maxLength) {
+    if (!text) return '';
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+}
+
+// Event listeners for analytics
+document.getElementById('analytics-time-range')?.addEventListener('change', function() {
+    const customRange = document.getElementById('analytics-custom-range');
+    if (this.value === 'custom') {
+        customRange.style.display = 'flex';
+        customRange.style.gap = '0.5rem';
+    } else {
+        customRange.style.display = 'none';
+        loadAnalytics();
+    }
+});
+
+document.getElementById('refresh-analytics-btn')?.addEventListener('click', loadAnalytics);
+
+// Load analytics when tab is shown
+document.querySelectorAll('.view-tab').forEach(tab => {
+    const originalClick = tab.onclick;
+    tab.onclick = function() {
+        if (originalClick) originalClick.call(this);
+        if (this.dataset.target === 'analytics' && state.token) {
+            setTimeout(loadAnalytics, 100);
+        }
+    };
+});

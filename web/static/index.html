@@ -26,6 +26,7 @@
                 <li><a href="#repl" aria-label="Jump to CEO REPL section">CEO REPL</a></li>
                 <li><a href="#streaming-test" aria-label="Jump to Streaming Test section">Streaming Test</a></li>
                 <li><a href="#users" aria-label="Jump to Users section">Users</a></li>
+                <li><a href="#analytics" aria-label="Jump to Analytics section">Analytics</a></li>
             </ul>
         </nav>
     </header>
@@ -42,6 +43,7 @@
             <button class="view-tab" data-target="repl" role="tab" aria-selected="false">CEO REPL</button>
             <button class="view-tab" data-target="streaming-test" role="tab" aria-selected="false">Streaming Test</button>
             <button class="view-tab" data-target="users" role="tab" aria-selected="false">Users</button>
+            <button class="view-tab" data-target="analytics" role="tab" aria-selected="false">Analytics</button>
         </div>
 
         <!-- Project Viewer Section -->
@@ -359,6 +361,108 @@
                     <button type="button" id="copy-apikey-btn" class="primary">Copy to Clipboard</button>
                     <button type="button" id="close-apikey-display-btn" class="secondary">Close</button>
                 </div>
+            </div>
+        </section>
+
+        <!-- Analytics Dashboard Section -->
+        <section id="analytics" class="view-panel" role="tabpanel" aria-label="Analytics Dashboard" hidden>
+            <h2><span aria-hidden="true">📊</span> Analytics Dashboard</h2>
+            <p class="small" style="margin-bottom: 1rem;">View usage patterns, costs, and performance metrics.</p>
+            
+            <div class="toolbar">
+                <div class="toolbar-row">
+                    <div class="field">
+                        <label for="analytics-time-range">Time Range</label>
+                        <select id="analytics-time-range">
+                            <option value="1h">Last Hour</option>
+                            <option value="24h" selected>Last 24 Hours</option>
+                            <option value="7d">Last 7 Days</option>
+                            <option value="30d">Last 30 Days</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                    <div class="field" id="analytics-custom-range" style="display: none;">
+                        <label for="analytics-start-time">Start</label>
+                        <input type="datetime-local" id="analytics-start-time">
+                        <label for="analytics-end-time">End</label>
+                        <input type="datetime-local" id="analytics-end-time">
+                    </div>
+                    <button type="button" id="refresh-analytics-btn" class="primary">Refresh</button>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="analytics-summary">
+                <div class="analytics-card">
+                    <h3>Total Requests</h3>
+                    <div class="analytics-value" id="analytics-total-requests">-</div>
+                    <div class="analytics-label">requests</div>
+                </div>
+                <div class="analytics-card">
+                    <h3>Total Cost</h3>
+                    <div class="analytics-value" id="analytics-total-cost">-</div>
+                    <div class="analytics-label">USD</div>
+                </div>
+                <div class="analytics-card">
+                    <h3>Avg Latency</h3>
+                    <div class="analytics-value" id="analytics-avg-latency">-</div>
+                    <div class="analytics-label">ms</div>
+                </div>
+                <div class="analytics-card">
+                    <h3>Error Rate</h3>
+                    <div class="analytics-value" id="analytics-error-rate">-</div>
+                    <div class="analytics-label">%</div>
+                </div>
+            </div>
+
+            <!-- Cost Breakdown -->
+            <div class="analytics-section">
+                <h3>Cost Breakdown</h3>
+                <div class="analytics-charts">
+                    <div class="chart-container">
+                        <h4>Cost by Provider</h4>
+                        <div id="chart-cost-by-provider" class="chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <h4>Cost by User</h4>
+                        <div id="chart-cost-by-user" class="chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Usage Stats -->
+            <div class="analytics-section">
+                <h3>Usage Statistics</h3>
+                <div class="analytics-charts">
+                    <div class="chart-container">
+                        <h4>Requests by Provider</h4>
+                        <div id="chart-requests-by-provider" class="chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <h4>Requests by User</h4>
+                        <div id="chart-requests-by-user" class="chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Table -->
+            <div class="analytics-section">
+                <h3>Detailed Breakdown</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Provider / User</th>
+                            <th>Requests</th>
+                            <th>Tokens</th>
+                            <th>Cost (USD)</th>
+                            <th>Avg Latency (ms)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="analytics-details-table">
+                        <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </section>
     </main>
