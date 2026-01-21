@@ -1,43 +1,88 @@
-# Beads Directory
+# Beads - AI-Native Issue Tracking
 
-This directory contains the beads (work items) tracking system for the AgentiCorp project.
+Welcome to Beads! This repository uses **Beads** for issue tracking - a modern, AI-native tool designed to live directly in your codebase alongside your code.
 
-## Structure
+## What is Beads?
 
-- `beads/` - Active work items (tasks, features, bugs)
-- `decisions/` - Decision beads requiring resolution
-- `closed/` - Completed beads (archived)
+Beads is issue tracking that lives in your repo, making it perfect for AI coding agents and developers who want their issues close to their code. No web UI required - everything works through the CLI and integrates seamlessly with git.
 
-## Bead Format
+**Learn more:** [github.com/steveyegge/beads](https://github.com/steveyegge/beads)
 
-Each bead is stored as a YAML file with the following structure:
+## Quick Start
 
-```yaml
-id: bd-<unique-id>
-type: task|decision|epic
-title: Short description
-description: Detailed description
-status: open|in_progress|blocked|closed
-priority: 0-3 (0=P0/critical, 3=P3/low)
-project_id: project identifier
-assigned_to: agent or user ID (optional)
-blocked_by: [list of bead IDs]
-blocks: [list of bead IDs]
-parent: parent bead ID (optional)
-children: [list of child bead IDs]
-tags: [list of tags]
-created_at: ISO timestamp
-updated_at: ISO timestamp
-closed_at: ISO timestamp (optional)
+### Essential Commands
+
+```bash
+# Create new issues
+bd create "Add user authentication"
+
+# View all issues
+bd list
+
+# View issue details
+bd show <issue-id>
+
+# Update issue status
+bd update <issue-id> --status in_progress
+bd update <issue-id> --status closed
+
+# Sync with git remote
+bd sync
 ```
 
-## Usage
+### Working with Issues
 
-Beads can be managed through:
-1. The AgentiCorp API (`/api/v1/beads`)
-2. Direct file manipulation in this directory
-3. The `bd` CLI tool (if installed)
+Issues in Beads are:
+- **Git-native**: Stored in `.beads/issues.jsonl` and synced like code
+- **AI-friendly**: CLI-first design works perfectly with AI coding agents
+- **Branch-aware**: Issues can follow your branch workflow
+- **Always in sync**: Auto-syncs with your commits
 
-## Current Work
+## Why Beads?
 
-All active work should have a corresponding bead in the `beads/` directory.
+✨ **AI-Native Design**
+- Built specifically for AI-assisted development workflows
+- CLI-first interface works seamlessly with AI coding agents
+- No context switching to web UIs
+
+🚀 **Developer Focused**
+- Issues live in your repo, right next to your code
+- Works offline, syncs when you push
+- Fast, lightweight, and stays out of your way
+
+🔧 **Git Integration**
+- Automatic sync with git commits
+- Branch-aware issue tracking
+- Intelligent JSONL merge resolution
+
+## AgentiCorp Integration
+
+AgentiCorp uses Beads for:
+- **Meta-work tracking**: Features, bugs, and improvements to AgentiCorp itself
+- **Managed projects**: Each registered project has its own Beads database
+- **AI agent coordination**: Agents discover and work on beads automatically
+
+## Get Started with Beads
+
+Try Beads in your own projects:
+
+```bash
+# Install Beads
+curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+
+# Initialize in your repo
+bd init
+
+# Create your first issue
+bd create "Try out Beads"
+```
+
+## Learn More
+
+- **Documentation**: [github.com/steveyegge/beads/docs](https://github.com/steveyegge/beads/tree/main/docs)
+- **Quick Start Guide**: Run `bd quickstart`
+- **Examples**: [github.com/steveyegge/beads/examples](https://github.com/steveyegge/beads/tree/main/examples)
+
+---
+
+*Beads: Issue tracking that moves at the speed of thought* ⚡
