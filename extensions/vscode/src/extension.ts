@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 import { ChatPanelProvider } from './chatPanel';
 import { AgentiCorpClient } from './client';
+import { AgentiCorpCompletionProvider } from './completionProvider';
 
 let chatPanelProvider: ChatPanelProvider;
+let completionProvider: AgentiCorpCompletionProvider;
 let client: AgentiCorpClient;
 
 export function activate(context: vscode.ExtensionContext) {
@@ -22,6 +24,16 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.registerWebviewViewProvider(
             'agenticorp.chatView',
             chatPanelProvider
+        )
+    );
+
+    // Register inline completion provider
+    completionProvider = new AgentiCorpCompletionProvider(client);
+    
+    context.subscriptions.push(
+        vscode.languages.registerInlineCompletionItemProvider(
+            { pattern: '**' },
+            completionProvider
         )
     );
 
