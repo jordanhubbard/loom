@@ -131,6 +131,12 @@ func (s *Server) SetupRoutes() http.Handler {
 	mux.HandleFunc("/api/v1/chat/completions/stream", s.handleStreamChatCompletion)
 	mux.HandleFunc("/api/v1/chat/completions", s.handleChatCompletion)
 
+	// Git operations
+	mux.HandleFunc("/api/v1/projects/git/sync", s.handleGitSync)
+	mux.HandleFunc("/api/v1/projects/git/commit", s.handleGitCommit)
+	mux.HandleFunc("/api/v1/projects/git/push", s.handleGitPush)
+	mux.HandleFunc("/api/v1/projects/git/status", s.handleGitStatus)
+
 	// Configuration
 	mux.HandleFunc("/api/v1/config", s.handleConfig)
 	mux.HandleFunc("/api/v1/config/export.yaml", s.handleConfigExportYAML)

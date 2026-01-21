@@ -17,6 +17,7 @@ import (
 	"github.com/jordanhubbard/agenticorp/internal/database"
 	"github.com/jordanhubbard/agenticorp/internal/decision"
 	"github.com/jordanhubbard/agenticorp/internal/dispatch"
+	"github.com/jordanhubbard/agenticorp/internal/gitops"
 	"github.com/jordanhubbard/agenticorp/internal/modelcatalog"
 	internalmodels "github.com/jordanhubbard/agenticorp/internal/models"
 	"github.com/jordanhubbard/agenticorp/internal/orgchart"
@@ -47,6 +48,7 @@ type AgentiCorp struct {
 	eventBus         *eventbus.EventBus
 	temporalManager  *temporal.Manager
 	modelCatalog     *modelcatalog.Catalog
+	gitopsManager    *gitops.Manager
 }
 
 // New creates a new AgentiCorp instance
@@ -96,6 +98,19 @@ func New(cfg *config.Config) (*AgentiCorp, error) {
 		}
 	}
 
+	// Initialize gitops manager for project repository management
+	gitWorkDir := cfg.Projects[0].BeadsPath
+	if gitWorkDir == "" {
+		gitWorkDir = "/app/src"
+	} else {
+		// Use parent directory of beads path as work directory base
+		gitWorkDir = filepath.Join(filepath.Dir(gitWorkDir), "src")
+	}
+	gitopsMgr, err := gitops.NewManager(gitWorkDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize gitops manager: %w", err)
+	}
+
 	agentMgr := agent.NewWorkerManager(cfg.Agents.MaxConcurrent, providerRegistry, eb)
 	if db != nil {
 		agentMgr.SetAgentPersister(db)
@@ -115,6 +130,7 @@ func New(cfg *config.Config) (*AgentiCorp, error) {
 		eventBus:         eb,
 		temporalManager:  temporalMgr,
 		modelCatalog:     modelCatalog,
+		gitopsManager:    gitopsMgr,
 	}
 
 	arb.dispatcher = dispatch.NewDispatcher(arb.beadsManager, arb.projectManager, arb.agentManager, arb.providerRegistry, eb)
@@ -251,12 +267,54 @@ func (a *AgentiCorp) Initialize(ctx context.Context) error {
 	}
 
 	// Load beads from registered projects.
-	for _, p := range projectValues {
+	for i := range projectValues {
+		p := &projectValues[i]
 		if p.BeadsPath == "" {
 			continue
 		}
-		a.beadsManager.SetBeadsPath(p.BeadsPath)
-		_ = a.beadsManager.LoadBeadsFromFilesystem(p.BeadsPath)
+
+		// For projects with git repositories, clone/pull them first
+		if p.GitRepo != "" && p.GitRepo != "." {
+			// Set default auth method if not specified
+			if p.GitAuthMethod == "" {
+				p.GitAuthMethod = models.GitAuthNone // Default to no auth for public repos
+			}
+
+			// Check if already cloned
+			workDir := a.gitopsManager.GetProjectWorkDir(p.ID)
+			if _, err := os.Stat(filepath.Join(workDir, ".git")); os.IsNotExist(err) {
+				// Clone the repository
+				fmt.Printf("Cloning project %s from %s...\n", p.ID, p.GitRepo)
+				if err := a.gitopsManager.CloneProject(ctx, p); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: Failed to clone project %s: %v\n", p.ID, err)
+					continue
+				}
+				fmt.Printf("Successfully cloned project %s\n", p.ID)
+			} else {
+				// Pull latest changes
+				fmt.Printf("Pulling latest changes for project %s...\n", p.ID)
+				if err := a.gitopsManager.PullProject(ctx, p); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: Failed to pull project %s: %v\n", p.ID, err)
+					// Continue anyway with existing checkout
+				} else {
+					fmt.Printf("Successfully pulled project %s\n", p.ID)
+				}
+			}
+
+			// Update project in database with git metadata
+			if a.database != nil {
+				_ = a.database.UpsertProject(p)
+			}
+
+			// Load beads from the cloned repository
+			beadsPath := filepath.Join(workDir, p.BeadsPath, "beads")
+			a.beadsManager.SetBeadsPath(beadsPath)
+			_ = a.beadsManager.LoadBeadsFromFilesystem(beadsPath)
+		} else {
+			// Local project (AgentiCorp itself), load beads directly
+			a.beadsManager.SetBeadsPath(p.BeadsPath)
+			_ = a.beadsManager.LoadBeadsFromFilesystem(p.BeadsPath)
+		}
 	}
 
 	// Load providers from database into the in-memory registry.
@@ -1663,6 +1721,11 @@ func (a *AgentiCorp) GetWorkGraph(projectID string) (*models.WorkGraph, error) {
 // GetFileLockManager returns the file lock manager
 func (a *AgentiCorp) GetFileLockManager() *FileLockManager {
 	return a.fileLockManager
+}
+
+// GetGitopsManager returns the gitops manager
+func (a *AgentiCorp) GetGitopsManager() *gitops.Manager {
+	return a.gitopsManager
 }
 
 // StartMaintenanceLoop starts background maintenance tasks

@@ -327,16 +327,26 @@ Always include bead ID in commits for traceability:
 - Enables impact analysis
 - Supports rollback scenarios
 
-## Limitations (Current)
+## Integration Status
+
+✅ **Fully Integrated** (as of v0.2)
 
 - ✅ Clone, pull, commit, push operations
 - ✅ SSH and token authentication
+- ✅ Automatic clone/pull on startup for sticky projects
+- ✅ API endpoints for all git operations
+- ✅ Project work directory management
+- ✅ Git metadata tracking (commit hash, sync time)
+
+## Limitations (Current)
+
 - ⚠️ No git LFS support yet
 - ⚠️ No submodule support yet
 - ⚠️ No merge conflict auto-resolution
 - ⚠️ No branch creation/deletion APIs yet
+- ⚠️ No UI controls yet (API only)
 
-See [ROADMAP](ROADMAP.md) for planned enhancements.
+See future milestones for planned enhancements.
 
 ## Related Documentation
 
