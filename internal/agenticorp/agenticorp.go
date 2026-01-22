@@ -17,6 +17,7 @@ import (
 	"github.com/jordanhubbard/agenticorp/internal/database"
 	"github.com/jordanhubbard/agenticorp/internal/decision"
 	"github.com/jordanhubbard/agenticorp/internal/dispatch"
+	"github.com/jordanhubbard/agenticorp/internal/executor"
 	"github.com/jordanhubbard/agenticorp/internal/gitops"
 	"github.com/jordanhubbard/agenticorp/internal/modelcatalog"
 	internalmodels "github.com/jordanhubbard/agenticorp/internal/models"
@@ -50,6 +51,7 @@ type AgentiCorp struct {
 	temporalManager  *temporal.Manager
 	modelCatalog     *modelcatalog.Catalog
 	gitopsManager    *gitops.Manager
+	shellExecutor    *executor.ShellExecutor
 }
 
 // New creates a new AgentiCorp instance
@@ -123,6 +125,12 @@ func New(cfg *config.Config) (*AgentiCorp, error) {
 		agentMgr.SetAgentPersister(db)
 	}
 
+	// Initialize shell executor if database is available
+	var shellExec *executor.ShellExecutor
+	if db != nil {
+		shellExec = executor.NewShellExecutor(db.DB())
+	}
+
 	arb := &AgentiCorp{
 		config:           cfg,
 		agentManager:     agentMgr,
@@ -138,6 +146,7 @@ func New(cfg *config.Config) (*AgentiCorp, error) {
 		temporalManager:  temporalMgr,
 		modelCatalog:     modelCatalog,
 		gitopsManager:    gitopsMgr,
+		shellExecutor:    shellExec,
 	}
 
 	arb.dispatcher = dispatch.NewDispatcher(arb.beadsManager, arb.projectManager, arb.agentManager, arb.providerRegistry, eb)
@@ -521,6 +530,30 @@ func (a *AgentiCorp) GetEventBus() *eventbus.EventBus {
 // GetDatabase returns the database instance
 func (a *AgentiCorp) GetDatabase() *database.Database {
 	return a.database
+}
+
+// ExecuteShellCommand executes a shell command and logs it
+func (a *AgentiCorp) ExecuteShellCommand(ctx context.Context, req executor.ExecuteCommandRequest) (*executor.ExecuteCommandResult, error) {
+	if a.shellExecutor == nil {
+		return nil, fmt.Errorf("shell executor not available (database not configured)")
+	}
+	return a.shellExecutor.ExecuteCommand(ctx, req)
+}
+
+// GetCommandLogs retrieves command logs with filters
+func (a *AgentiCorp) GetCommandLogs(filters map[string]interface{}, limit int) ([]*models.CommandLog, error) {
+	if a.shellExecutor == nil {
+		return nil, fmt.Errorf("shell executor not available (database not configured)")
+	}
+	return a.shellExecutor.GetCommandLogs(filters, limit)
+}
+
+// GetCommandLog retrieves a single command log by ID
+func (a *AgentiCorp) GetCommandLog(id string) (*models.CommandLog, error) {
+	if a.shellExecutor == nil {
+		return nil, fmt.Errorf("shell executor not available (database not configured)")
+	}
+	return a.shellExecutor.GetCommandLog(id)
 }
 
 // GetAgentManager returns the agent manager

@@ -195,6 +195,28 @@ func (d *Database) initSchema() error {
 	CREATE INDEX IF NOT EXISTS idx_projects_parent_id ON projects(parent_id);
 	CREATE INDEX IF NOT EXISTS idx_org_charts_project_id ON org_charts(project_id);
 	CREATE INDEX IF NOT EXISTS idx_positions_org_chart_id ON org_chart_positions(org_chart_id);
+
+	-- Command Logs for agent shell command execution
+	CREATE TABLE IF NOT EXISTS command_logs (
+		id TEXT PRIMARY KEY,
+		agent_id TEXT NOT NULL,
+		bead_id TEXT,
+		project_id TEXT,
+		command TEXT NOT NULL,
+		working_dir TEXT NOT NULL,
+		exit_code INTEGER NOT NULL,
+		stdout TEXT,
+		stderr TEXT,
+		duration_ms INTEGER NOT NULL,
+		started_at DATETIME NOT NULL,
+		completed_at DATETIME NOT NULL,
+		context TEXT,
+		created_at DATETIME NOT NULL
+	);
+	CREATE INDEX IF NOT EXISTS idx_command_logs_agent_id ON command_logs(agent_id);
+	CREATE INDEX IF NOT EXISTS idx_command_logs_bead_id ON command_logs(bead_id);
+	CREATE INDEX IF NOT EXISTS idx_command_logs_project_id ON command_logs(project_id);
+	CREATE INDEX IF NOT EXISTS idx_command_logs_created_at ON command_logs(created_at);
 	`
 
 	if _, err := d.db.Exec(schema); err != nil {

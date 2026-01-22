@@ -181,6 +181,11 @@ func (s *Server) SetupRoutes() http.Handler {
 	// CEO REPL
 	mux.HandleFunc("/api/v1/repl", s.handleRepl)
 
+	// Shell command execution
+	mux.HandleFunc("/api/v1/commands/execute", s.HandleExecuteCommand)
+	mux.HandleFunc("/api/v1/commands", s.HandleGetCommandLogs)
+	mux.HandleFunc("/api/v1/commands/", s.HandleGetCommandLogs)
+
 	// Chat completions (with streaming support)
 	mux.HandleFunc("/api/v1/chat/completions/stream", s.handleStreamChatCompletion)
 	mux.HandleFunc("/api/v1/chat/completions", s.handleChatCompletion)
