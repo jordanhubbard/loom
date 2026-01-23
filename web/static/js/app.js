@@ -1360,12 +1360,13 @@ function renderProviders() {
     // Also populate streaming test provider dropdown
     const streamTestSelect = document.getElementById('stream-test-provider');
     if (streamTestSelect && state.providers) {
-        const activeProviders = state.providers.filter(p => p.status === 'active');
+        // Show ALL providers in streaming test (including failed ones for testing)
         streamTestSelect.innerHTML = 
             '<option value="">Select a provider...</option>' +
-            activeProviders.map(p => 
-                `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name || p.id)} (${escapeHtml(p.model || 'unknown')})</option>`
-            ).join('');
+            state.providers.map(p => {
+                const statusBadge = p.status === 'active' ? '' : ` [${p.status}]`;
+                return `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name || p.id)} (${escapeHtml(p.model || 'unknown')})${statusBadge}</option>`;
+            }).join('');
     }
 
     if (!state.providers || state.providers.length === 0) {
