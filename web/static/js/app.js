@@ -7,6 +7,10 @@ let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || '';
 let authCheckInFlight = null;
 let loginInFlight = null;
 
+// Feature flag: Set to false to disable authentication in the UI
+// Should match server-side config.yaml security.enable_auth setting
+const AUTH_ENABLED = false;
+
 // State
 let state = {
     beads: [],
@@ -52,11 +56,18 @@ let reloadTimers = {};
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    initUI();
-    initViewTabs();
-    loadAll();
-    startEventStream();
-    startAutoRefresh();
+    console.log('[AgentiCorp] DOMContentLoaded - Initializing...');
+    console.log('[AgentiCorp] AUTH_ENABLED =', AUTH_ENABLED);
+    try {
+        initUI();
+        initViewTabs();
+        loadAll();
+        startEventStream();
+        startAutoRefresh();
+        console.log('[AgentiCorp] Initialization complete');
+    } catch (error) {
+        console.error('[AgentiCorp] Initialization failed:', error);
+    }
 });
 
 function initUI() {
@@ -318,18 +329,30 @@ function startAutoRefresh() {
 
 // Load all data
 async function loadAll() {
-    await Promise.all([
-        loadBeads(),
-        loadProviders(),
-        loadAgents(),
-        loadProjects(),
-        loadPersonas(),
-        loadDecisions(),
-        loadSystemStatus(),
-        loadUsers(),
-        loadAPIKeys()
-    ]);
-    render();
+    console.log('[AgentiCorp] loadAll() started');
+    try {
+        await Promise.all([
+            loadBeads().catch(err => { console.error('[AgentiCorp] Failed to load beads:', err); state.beads = []; }),
+            loadProviders().catch(err => { console.error('[AgentiCorp] Failed to load providers:', err); state.providers = []; }),
+            loadAgents().catch(err => { console.error('[AgentiCorp] Failed to load agents:', err); state.agents = []; }),
+            loadProjects().catch(err => { console.error('[AgentiCorp] Failed to load projects:', err); state.projects = []; }),
+            loadPersonas().catch(err => { console.error('[AgentiCorp] Failed to load personas:', err); state.personas = []; }),
+            loadDecisions().catch(err => { console.error('[AgentiCorp] Failed to load decisions:', err); state.decisions = []; }),
+            loadSystemStatus().catch(err => { console.error('[AgentiCorp] Failed to load system status:', err); }),
+            loadUsers().catch(err => { console.error('[AgentiCorp] Failed to load users:', err); state.users = []; }),
+            loadAPIKeys().catch(err => { console.error('[AgentiCorp] Failed to load API keys:', err); state.apiKeys = []; })
+        ]);
+        console.log('[AgentiCorp] Data loaded successfully:', {
+            beads: state.beads?.length || 0,
+            projects: state.projects?.length || 0,
+            agents: state.agents?.length || 0,
+            providers: state.providers?.length || 0
+        });
+        render();
+        console.log('[AgentiCorp] render() completed');
+    } catch (error) {
+        console.error('[AgentiCorp] loadAll() failed:', error);
+    }
 }
 
 // API calls
@@ -340,7 +363,8 @@ async function apiCall(endpoint, options = {}) {
             ...options.headers
         };
 
-        if (!options.skipAuth && authToken) {
+        // Only add auth header if authentication is enabled and we have a token
+        if (AUTH_ENABLED && !options.skipAuth && authToken) {
             headers.Authorization = `Bearer ${authToken}`;
         }
 
@@ -362,7 +386,8 @@ async function apiCall(endpoint, options = {}) {
                     // ignore
                 }
             }
-            if (response.status === 401 && !options.skipAuth && !options.retryAuth) {
+            // Only try to authenticate if auth is enabled
+            if (AUTH_ENABLED && response.status === 401 && !options.skipAuth && !options.retryAuth) {
                 await ensureAuth(true);
                 return apiCall(endpoint, { ...options, retryAuth: true });
             }
@@ -384,6 +409,11 @@ async function apiCall(endpoint, options = {}) {
 }
 
 async function ensureAuth(forcePrompt = false) {
+    // Skip authentication if it's disabled
+    if (!AUTH_ENABLED) {
+        return;
+    }
+    
     if (authCheckInFlight) return authCheckInFlight;
     authCheckInFlight = (async () => {
         if (!forcePrompt && authToken) {
@@ -563,6 +593,24 @@ async function loadDecisions() {
 
 async function loadSystemStatus() {
     state.systemStatus = await apiCall('/system/status');
+}
+
+async function loadUsers() {
+    try {
+        state.users = await apiCall('/users', { suppressToast: true });
+    } catch (error) {
+        // Users endpoint may not be available without auth
+        state.users = [];
+    }
+}
+
+async function loadAPIKeys() {
+    try {
+        state.apiKeys = await apiCall('/apikeys', { suppressToast: true });
+    } catch (error) {
+        // API keys endpoint may not be available without auth
+        state.apiKeys = [];
+    }
 }
 
 // Render functions

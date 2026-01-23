@@ -186,6 +186,9 @@ func (s *Server) SetupRoutes() http.Handler {
 	mux.HandleFunc("/api/v1/commands", s.HandleGetCommandLogs)
 	mux.HandleFunc("/api/v1/commands/", s.HandleGetCommandLogs)
 
+	// Auto-filed bug reports
+	mux.HandleFunc("/api/v1/beads/auto-file", s.HandleAutoFileBug)
+
 	// Chat completions (with streaming support)
 	mux.HandleFunc("/api/v1/chat/completions/stream", s.handleStreamChatCompletion)
 	mux.HandleFunc("/api/v1/chat/completions", s.handleChatCompletion)

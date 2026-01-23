@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Configuration-based authentication toggle via `security.enable_auth` flag in `config.yaml`
+- Authentication can now be completely disabled for development environments
+- `CONFIG_PATH` environment variable support for specifying config file location
+- Comprehensive authentication configuration documentation (`docs/AUTH_CONFIGURATION.md`)
+
+### Changed
+- `main.go` now loads configuration from `config.yaml` instead of using hardcoded defaults
+- Docker container now uses volume-mounted config file for live configuration updates
+- Default authentication setting changed to `false` for development (set to `true` in production)
+
+### Fixed
+- Config file changes now properly apply when container restarts
+- Authentication middleware correctly respects `enable_auth` configuration flag
+
+## [Unreleased]
+
+### Added
 - Initial release infrastructure
 - Automated release script with semantic versioning
 - CHANGELOG generation from git commits

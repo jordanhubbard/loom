@@ -82,6 +82,7 @@ services:
       - TZ=UTC
       - TEMPORAL_HOST=temporal:7233
       - TEMPORAL_NAMESPACE=default
+      - CONFIG_PATH=/app/src/config.yaml
     networks:
       - agenticorp-network
     extra_hosts:

@@ -13,8 +13,20 @@ func main() {
 	fmt.Println("Welcome to AgentiCorp - AI Coding Agent Orchestrator")
 	fmt.Println("==================================================")
 
-	// Load or create default configuration
-	cfg := config.DefaultConfig()
+	// Load configuration from config.yaml if it exists, otherwise use defaults
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config.yaml"
+	}
+
+	cfg, err := config.LoadConfigFromFile(configPath)
+	if err != nil {
+		log.Printf("Warning: Failed to load config from %s: %v", configPath, err)
+		log.Printf("Using default configuration")
+		cfg = config.DefaultConfig()
+	} else {
+		log.Printf("Loaded configuration from %s", configPath)
+	}
 
 	// Override with environment variables if set
 	if temporalHost := os.Getenv("TEMPORAL_HOST"); temporalHost != "" {

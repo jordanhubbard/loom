@@ -28,7 +28,7 @@ agents:
   file_lock_timeout: 10m
 
 security:
-  enable_auth: true
+  enable_auth: false  # DISABLED FOR DEVELOPMENT - Enable in production
   pki_enabled: false  # Will be enabled when certificates are provided
   ca_file: ""
   require_https: false
@@ -76,5 +76,5 @@ projects:
 
 web_ui:
   enabled: true
-  static_path: ./web/static
+  static_path: /app/src/web/static  # Use volume-mounted files for live updates
   refresh_interval: 5  # seconds
