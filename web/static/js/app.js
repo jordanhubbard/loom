@@ -813,8 +813,12 @@ async function showAddAgentToProjectModal(projectId) {
         return;
     }
 
-    // Build persona options - only show default personas (the org chart)
-    const defaultPersonas = personas.filter(p => p.name && p.name.startsWith('default/'));
+    // Build persona options - only show default personas (the org chart), excluding templates
+    const defaultPersonas = personas.filter(p => 
+        p.name && 
+        p.name.startsWith('default/') && 
+        p.name !== 'templates'
+    );
     const personaOptions = defaultPersonas.map(p => {
         const roleName = extractRoleName(p.name);
         return { value: p.name, label: `${roleName} (${p.name})` };
@@ -1482,12 +1486,14 @@ function renderBeadCard(bead) {
 
 function renderAgents() {
     const q = (uiState.agent.search || '').trim().toLowerCase();
+    // Filter out templates agent (it does nothing for now)
+    const visibleAgents = state.agents.filter((a) => a.persona_name !== 'templates');
     const agents = q
-        ? state.agents.filter((a) => {
+        ? visibleAgents.filter((a) => {
               const hay = `${a.name || ''} ${a.persona_name || ''}`.toLowerCase();
               return hay.includes(q);
           })
-        : state.agents;
+        : visibleAgents;
 
     const html = agents.map(agent => {
         const statusClass = agent.status;
@@ -1859,7 +1865,9 @@ async function sendReplQuery() {
 }
 
 function renderPersonas() {
-    const html = state.personas.map(persona => `
+    // Filter out templates persona (it does nothing for now)
+    const visiblePersonas = state.personas.filter(p => p.name !== 'templates');
+    const html = visiblePersonas.map(persona => `
         <button type="button" class="persona-card" onclick="editPersona('${escapeHtml(persona.name)}')" aria-label="Edit persona: ${escapeHtml(persona.name)}">
             <h3>🎭 ${escapeHtml(persona.name)}</h3>
             <div>
