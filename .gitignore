@@ -9,6 +9,7 @@
 *.dylib
 bin/
 obj/
+/agenticorp
 
 # Test binary, built with `go test -c`
 *.test
