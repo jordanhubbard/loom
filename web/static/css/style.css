@@ -1414,3 +1414,124 @@ footer a:hover {
     color: var(--text-muted);
     padding: var(--space-3);
 }
+
+/* Motivations Dashboard */
+.motivation-role-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-2);
+}
+
+.motivation-role-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: var(--space-2);
+}
+
+.motivation-role-card h4 {
+    margin: 0 0 var(--space-1) 0;
+    font-size: 1rem;
+    color: var(--text-color);
+}
+
+.motivation-role-stats {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-1);
+    font-size: 0.85rem;
+}
+
+.motivation-role-stats .stat {
+    color: var(--text-muted);
+}
+
+.motivation-role-stats .stat.active {
+    color: var(--secondary-color);
+}
+
+.motivation-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.motivation-list li {
+    padding: 0.25rem 0;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.motivation-list li.disabled {
+    opacity: 0.5;
+}
+
+.motivation-list li.more {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.motivation-type {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.motivation-type.type-calendar {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.motivation-type.type-event {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.motivation-type.type-threshold {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.motivation-type.type-idle {
+    background: #f3e8ff;
+    color: #7c3aed;
+}
+
+.motivation-type.type-external {
+    background: #fce7f3;
+    color: #be185d;
+}
+
+.status-success {
+    color: var(--secondary-color);
+}
+
+.status-error {
+    color: var(--danger-color);
+}
+
+.status-muted {
+    color: var(--text-muted);
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.1rem 0.35rem;
+    background: var(--light-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+
+button.small {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}

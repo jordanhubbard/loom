@@ -92,6 +92,18 @@ const (
 	GitAuthGitHelper GitAuthMethod = "git-helper" // Use git credential helper
 )
 
+// ProjectMilestone represents a milestone within a project (embedded for simplicity)
+type ProjectMilestone struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description,omitempty"`
+	Type        string    `json:"type"`   // "release", "sprint_end", "quarterly_review", "annual_review", "custom"
+	Status      string    `json:"status"` // "planned", "in_progress", "complete", "missed", "cancelled"
+	DueDate     time.Time `json:"due_date"`
+	StartDate   *time.Time `json:"start_date,omitempty"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+}
+
 // Project represents a project that agents work on
 type Project struct {
 	EntityMetadata `json:",inline"`
@@ -111,6 +123,10 @@ type Project struct {
 	UpdatedAt   time.Time         `json:"updated_at"`
 	ClosedAt    *time.Time        `json:"closed_at,omitempty"`
 	Agents      []string          `json:"agents"` // Agent IDs working on this project
+
+	// Deadline tracking (motivation system)
+	DueDate    *time.Time          `json:"due_date,omitempty"` // Overall project deadline
+	Milestones []ProjectMilestone  `json:"milestones,omitempty"` // Project milestones
 
 	// Git management fields
 	GitAuthMethod    GitAuthMethod     `json:"git_auth_method"`              // Authentication method
@@ -167,9 +183,15 @@ type Bead struct {
 	Children    []string          `json:"children,omitempty"`    // Child bead IDs
 	Tags        []string          `json:"tags,omitempty"`
 	Context     map[string]string `json:"context,omitempty"`
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
-	ClosedAt    *time.Time        `json:"closed_at,omitempty"`
+
+	// Deadline tracking (motivation system)
+	DueDate       *time.Time `json:"due_date,omitempty"`       // When this bead should be completed
+	MilestoneID   string     `json:"milestone_id,omitempty"`   // Associated milestone
+	EstimatedTime int        `json:"estimated_time,omitempty"` // Estimated minutes to complete
+
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	ClosedAt  *time.Time `json:"closed_at,omitempty"`
 }
 
 // VersionedEntity interface implementation for Bead

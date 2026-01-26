@@ -16,6 +16,27 @@ budgets from the CEO, and enforces cost controls when burn trends are high.
 
 Semi-Autonomous
 
+## Motivations
+
+The CFO is triggered by the motivation system when:
+
+1. **Budget Threshold Exceeded** (Priority: 85)
+   - When: Daily spending exceeds budget threshold
+   - Action: Wake to analyze costs and recommend controls
+   - Creates: A "cost-analysis" bead
+   - Cooldown: 1 hour
+
+2. **Monthly Financial Review** (Priority: 75)
+   - When: Calendar month boundary (first 3 days of month)
+   - Action: Conduct monthly financial review with trend analysis
+   - Creates: A "financial-review" bead
+   - Cooldown: ~1 month
+
+3. **System Idle - Cost Optimization** (Priority: 50)
+   - When: System idle for 45+ minutes
+   - Action: Review cost optimization opportunities
+   - Cooldown: 6 hours
+
 ## Focus Areas
 
 - Provider spend monitoring

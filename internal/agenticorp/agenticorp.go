@@ -29,6 +29,7 @@ import (
 	"github.com/jordanhubbard/agenticorp/internal/project"
 	"github.com/jordanhubbard/agenticorp/internal/provider"
 	"github.com/jordanhubbard/agenticorp/internal/routing"
+	"github.com/jordanhubbard/agenticorp/internal/motivation"
 	"github.com/jordanhubbard/agenticorp/internal/temporal"
 	temporalactivities "github.com/jordanhubbard/agenticorp/internal/temporal/activities"
 	"github.com/jordanhubbard/agenticorp/internal/temporal/eventbus"
@@ -55,8 +56,11 @@ type AgentiCorp struct {
 	temporalManager  *temporal.Manager
 	modelCatalog     *modelcatalog.Catalog
 	gitopsManager    *gitops.Manager
-	shellExecutor    *executor.ShellExecutor
-	logManager       *logging.Manager
+	shellExecutor        *executor.ShellExecutor
+	logManager           *logging.Manager
+	motivationRegistry   *motivation.Registry
+	motivationEngine     *motivation.Engine
+	idleDetector         *motivation.IdleDetector
 }
 
 // New creates a new AgentiCorp instance
@@ -138,6 +142,10 @@ func New(cfg *config.Config) (*AgentiCorp, error) {
 		logMgr = logging.NewManager(db.DB())
 	}
 
+	// Initialize motivation system
+	motivationRegistry := motivation.NewRegistry(motivation.DefaultConfig())
+	idleDetector := motivation.NewIdleDetector(motivation.DefaultIdleConfig())
+
 	arb := &AgentiCorp{
 		config:           cfg,
 		agentManager:     agentMgr,
@@ -153,8 +161,10 @@ func New(cfg *config.Config) (*AgentiCorp, error) {
 		temporalManager:  temporalMgr,
 		modelCatalog:     modelCatalog,
 		gitopsManager:    gitopsMgr,
-		shellExecutor:    shellExec,
-		logManager:       logMgr,
+		shellExecutor:        shellExec,
+		logManager:           logMgr,
+		motivationRegistry:   motivationRegistry,
+		idleDetector:         idleDetector,
 	}
 
 	actionRouter := &actions.Router{
@@ -467,6 +477,15 @@ func (a *AgentiCorp) Initialize(ctx context.Context) error {
 	// Kick-start work on all open beads across registered projects.
 	a.kickstartOpenBeads(ctx)
 
+	// Register default motivations for all agent roles
+	if a.motivationRegistry != nil {
+		if err := motivation.RegisterDefaults(a.motivationRegistry); err != nil {
+			log.Printf("Warning: Failed to register default motivations: %v", err)
+		} else {
+			log.Printf("Registered %d default motivations", a.motivationRegistry.Count())
+		}
+	}
+
 	return nil
 }
 
@@ -652,6 +671,26 @@ func (a *AgentiCorp) GetDecisionManager() *decision.Manager {
 // GetOrgChartManager returns the org chart manager
 func (a *AgentiCorp) GetOrgChartManager() *orgchart.Manager {
 	return a.orgChartManager
+}
+
+// GetMotivationRegistry returns the motivation registry
+func (a *AgentiCorp) GetMotivationRegistry() *motivation.Registry {
+	return a.motivationRegistry
+}
+
+// GetMotivationEngine returns the motivation engine
+func (a *AgentiCorp) GetMotivationEngine() *motivation.Engine {
+	return a.motivationEngine
+}
+
+// GetIdleDetector returns the idle detector
+func (a *AgentiCorp) GetIdleDetector() *motivation.IdleDetector {
+	return a.idleDetector
+}
+
+// GetWorkerManager returns the agent worker manager
+func (a *AgentiCorp) GetWorkerManager() *agent.WorkerManager {
+	return a.agentManager
 }
 
 // Project management helpers

@@ -343,7 +343,8 @@ async function loadAll() {
             loadDecisions().catch(err => { console.error('[AgentiCorp] Failed to load decisions:', err); state.decisions = []; }),
             loadSystemStatus().catch(err => { console.error('[AgentiCorp] Failed to load system status:', err); }),
             loadUsers().catch(err => { console.error('[AgentiCorp] Failed to load users:', err); state.users = []; }),
-            loadAPIKeys().catch(err => { console.error('[AgentiCorp] Failed to load API keys:', err); state.apiKeys = []; })
+            loadAPIKeys().catch(err => { console.error('[AgentiCorp] Failed to load API keys:', err); state.apiKeys = []; }),
+            loadMotivations().catch(err => { console.error('[AgentiCorp] Failed to load motivations:', err); })
         ]);
         await loadCeoBeads().catch(err => { console.error('[AgentiCorp] Failed to load CEO beads:', err); state.ceoBeads = []; });
         console.log('[AgentiCorp] Data loaded successfully:', {
@@ -3671,3 +3672,283 @@ document.getElementById('export-stats-csv-btn')?.addEventListener('click', () =>
 document.getElementById('export-logs-csv-btn')?.addEventListener('click', () => {
     exportAnalytics('logs', 'csv');
 });
+
+// =====================
+// Motivations Dashboard
+// =====================
+
+let motivationsState = {
+    motivations: [],
+    roles: [],
+    history: [],
+    idleState: null
+};
+
+async function loadMotivations() {
+    try {
+        // Load all motivations data in parallel
+        const [motivationsRes, rolesRes, historyRes, idleRes] = await Promise.all([
+            fetch(`${API_BASE}/motivations`, { headers: getAuthHeaders() }),
+            fetch(`${API_BASE}/motivations/roles`, { headers: getAuthHeaders() }),
+            fetch(`${API_BASE}/motivations/history?limit=50`, { headers: getAuthHeaders() }),
+            fetch(`${API_BASE}/motivations/idle`, { headers: getAuthHeaders() })
+        ]);
+
+        if (motivationsRes.ok) {
+            motivationsState.motivations = await motivationsRes.json();
+        }
+        if (rolesRes.ok) {
+            motivationsState.roles = await rolesRes.json();
+            populateMotivationRoleFilter();
+        }
+        if (historyRes.ok) {
+            motivationsState.history = await historyRes.json();
+        }
+        if (idleRes.ok) {
+            motivationsState.idleState = await idleRes.json();
+        }
+
+        renderMotivationsDashboard();
+    } catch (error) {
+        console.error('Error loading motivations:', error);
+        showToast('Failed to load motivations: ' + error.message, 'error');
+    }
+}
+
+function populateMotivationRoleFilter() {
+    const select = document.getElementById('motivation-role-filter');
+    if (!select || !motivationsState.roles) return;
+    
+    // Keep the "All Roles" option
+    select.innerHTML = '<option value="">All Roles</option>';
+    
+    // Add role options
+    const roles = motivationsState.roles.roles || [];
+    roles.forEach(role => {
+        const option = document.createElement('option');
+        option.value = role.role;
+        option.textContent = role.role.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        select.appendChild(option);
+    });
+}
+
+function renderMotivationsDashboard() {
+    renderMotivationStats();
+    renderMotivationsByRole();
+    renderMotivationsTable();
+    renderMotivationHistory();
+}
+
+function renderMotivationStats() {
+    // System idle status
+    const idleEl = document.getElementById('motivation-system-idle');
+    const idleLabelEl = document.getElementById('motivation-idle-label');
+    if (idleEl && motivationsState.idleState) {
+        const isIdle = motivationsState.idleState.system_idle;
+        idleEl.textContent = isIdle ? '💤' : '✅';
+        idleEl.style.color = isIdle ? 'var(--warning-color)' : 'var(--success-color)';
+        idleLabelEl.textContent = isIdle ? 'System Idle' : 'Active';
+    }
+
+    // Total count
+    const totalEl = document.getElementById('motivation-total-count');
+    if (totalEl) {
+        totalEl.textContent = motivationsState.motivations.length || 0;
+    }
+
+    // Active count
+    const activeEl = document.getElementById('motivation-active-count');
+    if (activeEl) {
+        const activeCount = motivationsState.motivations.filter(m => m.status === 'active').length;
+        activeEl.textContent = activeCount;
+    }
+
+    // Recent triggers (last 24h)
+    const triggersEl = document.getElementById('motivation-recent-triggers');
+    if (triggersEl) {
+        const now = Date.now();
+        const oneDayAgo = now - 24 * 60 * 60 * 1000;
+        const recentCount = (motivationsState.history || []).filter(h => {
+            const triggerTime = new Date(h.triggered_at).getTime();
+            return triggerTime > oneDayAgo;
+        }).length;
+        triggersEl.textContent = recentCount;
+    }
+}
+
+function renderMotivationsByRole() {
+    const container = document.getElementById('motivations-by-role');
+    if (!container || !motivationsState.roles) return;
+
+    const roles = motivationsState.roles.roles || [];
+    if (roles.length === 0) {
+        container.innerHTML = '<p>No motivations registered.</p>';
+        return;
+    }
+
+    container.innerHTML = roles.map(roleData => {
+        const motivations = roleData.motivations || [];
+        const activeCount = motivations.filter(m => m.status === 'active').length;
+        
+        return `
+            <div class="motivation-role-card">
+                <h4>${roleData.role.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</h4>
+                <div class="motivation-role-stats">
+                    <span class="stat">${motivations.length} total</span>
+                    <span class="stat active">${activeCount} active</span>
+                </div>
+                <ul class="motivation-list">
+                    ${motivations.slice(0, 3).map(m => `
+                        <li class="${m.status}">
+                            <span class="motivation-type type-${m.type}">${m.type}</span>
+                            ${m.name}
+                        </li>
+                    `).join('')}
+                    ${motivations.length > 3 ? `<li class="more">+${motivations.length - 3} more</li>` : ''}
+                </ul>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderMotivationsTable() {
+    const tbody = document.getElementById('motivations-table-body');
+    if (!tbody) return;
+
+    // Apply filters
+    const typeFilter = document.getElementById('motivation-type-filter')?.value || '';
+    const roleFilter = document.getElementById('motivation-role-filter')?.value || '';
+    const statusFilter = document.getElementById('motivation-status-filter')?.value || '';
+
+    let filtered = motivationsState.motivations;
+    if (typeFilter) {
+        filtered = filtered.filter(m => m.type === typeFilter);
+    }
+    if (roleFilter) {
+        filtered = filtered.filter(m => m.agent_role === roleFilter);
+    }
+    if (statusFilter) {
+        filtered = filtered.filter(m => m.status === statusFilter);
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No motivations found.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(m => {
+        const cooldownMins = m.cooldown_minutes || Math.round((m.cooldown_period || 0) / 60000000000);
+        const statusClass = m.status === 'active' ? 'success' : 'muted';
+        const isBuiltIn = m.is_built_in || m.built_in;
+        
+        return `
+            <tr>
+                <td>
+                    <strong>${escapeHtml(m.name)}</strong>
+                    ${isBuiltIn ? '<span class="badge">built-in</span>' : ''}
+                </td>
+                <td><span class="motivation-type type-${m.type}">${m.type}</span></td>
+                <td>${escapeHtml(m.condition)}</td>
+                <td>${escapeHtml(m.agent_role || '-')}</td>
+                <td>${m.priority || 50}</td>
+                <td>${cooldownMins}m</td>
+                <td><span class="status-${statusClass}">${m.status}</span></td>
+                <td>
+                    ${m.status === 'active' 
+                        ? `<button class="small secondary" onclick="disableMotivation('${m.id}')">Disable</button>`
+                        : `<button class="small primary" onclick="enableMotivation('${m.id}')">Enable</button>`
+                    }
+                    <button class="small" onclick="triggerMotivation('${m.id}')">Trigger</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderMotivationHistory() {
+    const tbody = document.getElementById('motivation-history-table');
+    if (!tbody) return;
+
+    const history = motivationsState.history || [];
+    if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No trigger history.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = history.slice(0, 20).map(h => {
+        const date = new Date(h.triggered_at);
+        const timeAgo = formatTimeAgo(date);
+        const resultClass = h.result === 'success' ? 'success' : (h.result === 'error' ? 'error' : 'muted');
+        
+        return `
+            <tr>
+                <td>${escapeHtml(h.motivation_name || h.motivation_id)}</td>
+                <td>${escapeHtml(h.agent_role || '-')}</td>
+                <td title="${date.toISOString()}">${timeAgo}</td>
+                <td><span class="status-${resultClass}">${h.result || '-'}</span></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function formatTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+}
+
+async function enableMotivation(id) {
+    try {
+        const response = await fetch(`${API_BASE}/motivations/${id}/enable`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to enable motivation');
+        showToast('Motivation enabled', 'success');
+        loadMotivations();
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+async function disableMotivation(id) {
+    try {
+        const response = await fetch(`${API_BASE}/motivations/${id}/disable`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to disable motivation');
+        showToast('Motivation disabled', 'success');
+        loadMotivations();
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+async function triggerMotivation(id) {
+    try {
+        const response = await fetch(`${API_BASE}/motivations/${id}/trigger`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to trigger motivation');
+        showToast('Motivation triggered manually', 'success');
+        // Reload to see the new history entry
+        setTimeout(loadMotivations, 1000);
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+// Motivation event listeners
+document.getElementById('refresh-motivations-btn')?.addEventListener('click', loadMotivations);
+document.getElementById('motivation-type-filter')?.addEventListener('change', renderMotivationsTable);
+document.getElementById('motivation-role-filter')?.addEventListener('change', renderMotivationsTable);
+document.getElementById('motivation-status-filter')?.addEventListener('change', renderMotivationsTable);

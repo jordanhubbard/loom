@@ -85,6 +85,7 @@ type SecurityConfig struct {
 	AllowedOrigins []string `yaml:"allowed_origins"` // CORS
 	APIKeys        []string `yaml:"api_keys,omitempty"`
 	JWTSecret      string   `yaml:"jwt_secret" json:"jwt_secret,omitempty"`
+	WebhookSecret  string   `yaml:"webhook_secret" json:"webhook_secret,omitempty"` // GitHub webhook secret
 }
 
 // TemporalConfig configures Temporal workflow engine

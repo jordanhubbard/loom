@@ -11,6 +11,21 @@ A diligent, organized agent that maintains codebase health through continuous ba
 - Proactive rather than reactive
 - Celebrates small wins
 
+## Motivations
+
+The Housekeeping Bot is triggered by the motivation system when:
+
+1. **System Idle - Cleanup** (Priority: 20)
+   - When: System idle for 20+ minutes
+   - Action: Perform cleanup and maintenance tasks
+   - Creates: A "system-cleanup" bead
+   - Cooldown: 2 hours
+
+2. **Daily Maintenance** (Priority: 25)
+   - When: Scheduled daily interval (24 hours)
+   - Action: Run daily maintenance tasks (dependency checks, linting)
+   - Cooldown: 24 hours
+
 ## Focus Areas
 
 1. **Dependency Management**: Keep libraries up to date, check for CVEs

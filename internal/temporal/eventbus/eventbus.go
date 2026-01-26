@@ -36,6 +36,14 @@ const (
 	EventTypeLogMessage         EventType = "log.message"
 	EventTypeWorkflowStarted    EventType = "workflow.started"
 	EventTypeWorkflowCompleted  EventType = "workflow.completed"
+
+	// Motivation system events
+	EventTypeMotivationFired      EventType = "motivation.fired"
+	EventTypeMotivationEnabled    EventType = "motivation.enabled"
+	EventTypeMotivationDisabled   EventType = "motivation.disabled"
+	EventTypeDeadlineApproaching  EventType = "deadline.approaching"
+	EventTypeDeadlinePassed       EventType = "deadline.passed"
+	EventTypeSystemIdle           EventType = "system.idle"
 )
 
 // Event represents a system event

@@ -29,6 +29,7 @@
                 <li><a href="#streaming-test" aria-label="Jump to Streaming Test section">Streaming Test</a></li>
                 <li><a href="#users" aria-label="Jump to Users section">Users</a></li>
                 <li><a href="#analytics" aria-label="Jump to Analytics section">Analytics</a></li>
+                <li><a href="#motivations" aria-label="Jump to Motivations section">Motivations</a></li>
             </ul>
         </nav>
     </header>
@@ -48,6 +49,7 @@
             <button class="view-tab" data-target="streaming-test" role="tab" aria-selected="false">Streaming Test</button>
             <button class="view-tab" data-target="users" role="tab" aria-selected="false">Users</button>
             <button class="view-tab" data-target="analytics" role="tab" aria-selected="false">Analytics</button>
+            <button class="view-tab" data-target="motivations" role="tab" aria-selected="false">Motivations</button>
         </div>
 
         <!-- Project Viewer Section -->
@@ -527,6 +529,113 @@
                     </thead>
                     <tbody id="analytics-details-table">
                         <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Motivations Dashboard Section -->
+        <section id="motivations" class="view-panel" role="tabpanel" aria-label="Motivations Dashboard" hidden>
+            <h2><span aria-hidden="true">⚡</span> Motivations Dashboard</h2>
+            <p class="small" style="margin-bottom: 1rem;">View and manage agent motivation triggers.</p>
+            
+            <div class="toolbar">
+                <div class="toolbar-row">
+                    <div class="field">
+                        <label for="motivation-type-filter">Type</label>
+                        <select id="motivation-type-filter">
+                            <option value="">All Types</option>
+                            <option value="calendar">Calendar</option>
+                            <option value="event">Event</option>
+                            <option value="threshold">Threshold</option>
+                            <option value="idle">Idle</option>
+                            <option value="external">External</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="motivation-role-filter">Agent Role</label>
+                        <select id="motivation-role-filter">
+                            <option value="">All Roles</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="motivation-status-filter">Status</label>
+                        <select id="motivation-status-filter">
+                            <option value="">All</option>
+                            <option value="active">Active</option>
+                            <option value="disabled">Disabled</option>
+                        </select>
+                    </div>
+                    <button type="button" id="refresh-motivations-btn" class="secondary">Refresh</button>
+                </div>
+            </div>
+
+            <!-- System Idle Status -->
+            <div class="analytics-summary" style="margin-bottom: 1.5rem;">
+                <div class="analytics-card">
+                    <h3>System Status</h3>
+                    <div class="analytics-value" id="motivation-system-idle">-</div>
+                    <div class="analytics-label" id="motivation-idle-label">Loading...</div>
+                </div>
+                <div class="analytics-card">
+                    <h3>Total Motivations</h3>
+                    <div class="analytics-value" id="motivation-total-count">-</div>
+                    <div class="analytics-label">registered</div>
+                </div>
+                <div class="analytics-card">
+                    <h3>Active</h3>
+                    <div class="analytics-value" id="motivation-active-count">-</div>
+                    <div class="analytics-label">enabled</div>
+                </div>
+                <div class="analytics-card">
+                    <h3>Recent Triggers</h3>
+                    <div class="analytics-value" id="motivation-recent-triggers">-</div>
+                    <div class="analytics-label">last 24h</div>
+                </div>
+            </div>
+
+            <!-- Motivations by Role -->
+            <div class="analytics-section">
+                <h3>Motivations by Agent Role</h3>
+                <div id="motivations-by-role" class="motivation-role-grid"></div>
+            </div>
+
+            <!-- All Motivations Table -->
+            <div class="analytics-section">
+                <h3>All Motivations</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Condition</th>
+                            <th>Agent Role</th>
+                            <th>Priority</th>
+                            <th>Cooldown</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="motivations-table-body">
+                        <tr><td colspan="8" style="text-align: center;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Recent Trigger History -->
+            <div class="analytics-section">
+                <h3>Recent Trigger History</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Motivation</th>
+                            <th>Agent Role</th>
+                            <th>Triggered At</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody id="motivation-history-table">
+                        <tr><td colspan="4" style="text-align: center;">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>

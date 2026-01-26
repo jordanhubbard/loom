@@ -250,6 +250,18 @@ func (s *Server) SetupRoutes() http.Handler {
 	mux.HandleFunc("/api/v1/events", s.handleGetEvents) // GET for history
 	// POST /api/v1/events for publishing is available but should be restricted
 
+	// Motivations
+	mux.HandleFunc("/api/v1/motivations", s.handleMotivations)
+	mux.HandleFunc("/api/v1/motivations/", s.handleMotivation)
+	mux.HandleFunc("/api/v1/motivations/history", s.handleMotivationHistory)
+	mux.HandleFunc("/api/v1/motivations/idle", s.handleIdleState)
+	mux.HandleFunc("/api/v1/motivations/roles", s.handleMotivationRoles)
+	mux.HandleFunc("/api/v1/motivations/defaults", s.handleMotivationDefaults)
+
+	// Webhooks (external event integration)
+	mux.HandleFunc("/api/v1/webhooks/github", s.handleGitHubWebhook)
+	mux.HandleFunc("/api/v1/webhooks/status", s.handleWebhookStatus)
+
 	// Apply middleware
 	handler := s.loggingMiddleware(mux)
 	handler = s.corsMiddleware(handler)
