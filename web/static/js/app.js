@@ -3709,7 +3709,18 @@ async function loadMotivations() {
             motivationsState.motivations = data.motivations || data || [];
         }
         if (rolesRes.ok) {
-            motivationsState.roles = await rolesRes.json();
+            const rolesData = await rolesRes.json();
+            // API returns {motivations: {role: [...]}} - transform to {roles: [{role, motivations}]}
+            if (rolesData.motivations && typeof rolesData.motivations === 'object') {
+                motivationsState.roles = {
+                    roles: Object.entries(rolesData.motivations).map(([role, motivations]) => ({
+                        role,
+                        motivations: motivations || []
+                    }))
+                };
+            } else {
+                motivationsState.roles = rolesData;
+            }
             populateMotivationRoleFilter();
         }
         if (historyRes.ok) {
