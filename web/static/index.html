@@ -30,6 +30,7 @@
                 <li><a href="#users" aria-label="Jump to Users section">Users</a></li>
                 <li><a href="#analytics" aria-label="Jump to Analytics section">Analytics</a></li>
                 <li><a href="#motivations" aria-label="Jump to Motivations section">Motivations</a></li>
+                <li><a href="#diagrams" aria-label="Jump to Diagrams section">Diagrams</a></li>
             </ul>
         </nav>
     </header>
@@ -50,6 +51,7 @@
             <button class="view-tab" data-target="users" role="tab" aria-selected="false">Users</button>
             <button class="view-tab" data-target="analytics" role="tab" aria-selected="false">Analytics</button>
             <button class="view-tab" data-target="motivations" role="tab" aria-selected="false">Motivations</button>
+            <button class="view-tab" data-target="diagrams" role="tab" aria-selected="false">Diagrams</button>
         </div>
 
         <!-- Project Viewer Section -->
@@ -640,6 +642,67 @@
                 </table>
             </div>
         </section>
+
+        <!-- Diagrams Section -->
+        <section id="diagrams" class="view-panel" role="tabpanel" aria-label="Workflow Diagrams" hidden>
+            <h2><span aria-hidden="true">📊</span> Workflow Diagrams</h2>
+            <p class="small" style="margin-bottom: 1rem;">Interactive visualization of projects, agents, beads, and motivations.</p>
+
+            <div class="toolbar">
+                <div class="toolbar-row">
+                    <div class="field">
+                        <label for="diagram-type-select">Diagram Type</label>
+                        <select id="diagram-type-select">
+                            <option value="hierarchy">Project Hierarchy</option>
+                            <option value="motivation">Motivation Flow</option>
+                            <option value="message">Message Flow</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="diagram-project-filter">Project Filter</label>
+                        <select id="diagram-project-filter">
+                            <option value="all">All Projects</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label><input type="checkbox" id="diagram-auto-refresh" checked> Auto-refresh</label>
+                    </div>
+                    <div class="field">
+                        <button type="button" id="diagram-reset-view" class="secondary">Reset View</button>
+                        <button type="button" id="diagram-export-png" class="secondary">Export PNG</button>
+                        <button type="button" id="diagram-export-svg" class="secondary">Export SVG</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="diagram-layout">
+                <div class="diagram-main">
+                    <div id="diagram-canvas" class="diagram-canvas"></div>
+                    <div class="diagram-legend" id="diagram-legend">
+                        <h4>Legend</h4>
+                        <div class="legend-items">
+                            <div class="legend-item" id="legend-hierarchy">
+                                <span class="legend-color" style="background: #3b82f6;"></span> Project
+                                <span class="legend-color" style="background: #10b981;"></span> Agent
+                                <span class="legend-color" style="background: #e5e7eb;"></span> Bead
+                            </div>
+                            <div class="legend-item" id="legend-motivation" style="display: none;">
+                                <span class="legend-color" style="background: #f59e0b;"></span> Motivation
+                                <span class="legend-color" style="background: #10b981;"></span> Role
+                                <span class="legend-color" style="background: #ec4899;"></span> Action
+                            </div>
+                            <div class="legend-item" id="legend-message" style="display: none;">
+                                <span class="legend-color" style="background: #6366f1;"></span> Component
+                                <span class="legend-color" style="background: #14b8a6;"></span> Event
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="diagram-details" class="diagram-details" style="display: none;">
+                    <!-- Node details will appear here -->
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- Modal for spawning agents -->
@@ -698,7 +761,11 @@
         <p>AgentiCorp v1.0.0 | <a href="/api/v1/health">API Health</a> | <a href="/api/openapi.yaml">OpenAPI Spec</a></p>
     </footer>
 
+    <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
     <script src="/static/js/logs.js?v=6"></script>
+    <script src="/static/js/diagrams.js?v=1"></script>
     <script src="/static/js/app.js?v=6"></script>
 </body>
 </html>

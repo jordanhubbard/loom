@@ -71,6 +71,12 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         initUI();
         initViewTabs();
+        // Initialize diagrams UI after Cytoscape loads
+        if (typeof cytoscape !== 'undefined' && typeof initDiagramsUI === 'function') {
+            initDiagramsUI();
+        } else {
+            console.warn('[AgentiCorp] Cytoscape.js or diagrams.js not loaded');
+        }
         loadAll();
         startEventStream();
         startAutoRefresh();
@@ -650,6 +656,7 @@ function render() {
     renderCeoDashboard();
     renderCeoBeads();
     renderUsers();
+    renderDiagrams();
 }
 
 function renderProjectViewer() {
@@ -3322,6 +3329,38 @@ function getRoleBadgeClass(role) {
     return map[role] || 'neutral';
 }
 
+function renderDiagrams() {
+    // Update project filter dropdown
+    const projectFilter = document.getElementById('diagram-project-filter');
+    if (projectFilter && state.projects) {
+        const currentValue = projectFilter.value;
+        projectFilter.innerHTML = '<option value="all">All Projects</option>' +
+            state.projects.map(p =>
+                `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name || p.id)}</option>`
+            ).join('');
+        // Restore previous selection if it still exists
+        if (currentValue && Array.from(projectFilter.options).some(opt => opt.value === currentValue)) {
+            projectFilter.value = currentValue;
+        }
+    }
+
+    // Update legend visibility based on current diagram type
+    if (typeof diagramState !== 'undefined') {
+        const legendHierarchy = document.getElementById('legend-hierarchy');
+        const legendMotivation = document.getElementById('legend-motivation');
+        const legendMessage = document.getElementById('legend-message');
+
+        if (legendHierarchy) legendHierarchy.style.display = diagramState.currentType === 'hierarchy' ? 'flex' : 'none';
+        if (legendMotivation) legendMotivation.style.display = diagramState.currentType === 'motivation' ? 'flex' : 'none';
+        if (legendMessage) legendMessage.style.display = diagramState.currentType === 'message' ? 'flex' : 'none';
+    }
+
+    // If diagrams view is active, update diagram data
+    if (uiState.view.active === 'diagrams' && typeof updateDiagramData === 'function') {
+        updateDiagramData();
+    }
+}
+
 async function handleCreateUser() {
     const username = document.getElementById('user-username')?.value;
     const email = document.getElementById('user-email')?.value;
@@ -3692,6 +3731,9 @@ let motivationsState = {
     history: [],
     idleState: null
 };
+
+// Expose motivationsState to window for diagrams
+window.motivationsState = motivationsState;
 
 async function loadMotivations() {
     try {
