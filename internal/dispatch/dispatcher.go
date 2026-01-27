@@ -416,7 +416,104 @@ func buildBeadContext(b *models.Bead, p *models.Project) string {
 		ctx += "\n"
 	}
 
-	ctx += "Output format:\n"
-	ctx += "1) Short plan\n2) Key questions/risks\n3) Concrete next actions (commands/files to change)\n4) Proposed patch snippets if applicable\n"
+	// Add specialized instructions for auto-filed bugs
+	if isAutoFiledBug(b) {
+		ctx += buildBugInvestigationInstructions(b)
+	} else {
+		ctx += "Output format:\n"
+		ctx += "1) Short plan\n2) Key questions/risks\n3) Concrete next actions (commands/files to change)\n4) Proposed patch snippets if applicable\n"
+	}
 	return ctx
+}
+
+// isAutoFiledBug checks if a bead is an auto-filed bug
+func isAutoFiledBug(b *models.Bead) bool {
+	if b == nil {
+		return false
+	}
+	if strings.Contains(strings.ToLower(b.Title), "[auto-filed]") {
+		return true
+	}
+	for _, tag := range b.Tags {
+		if strings.ToLower(tag) == "auto-filed" {
+			return true
+		}
+	}
+	return false
+}
+
+// buildBugInvestigationInstructions returns specialized instructions for investigating auto-filed bugs
+func buildBugInvestigationInstructions(b *models.Bead) string {
+	return `
+# Bug Investigation Workflow
+
+You have been assigned an auto-filed bug. Follow this investigation workflow:
+
+## Step 1: Extract Error Context
+From the bug report above, identify:
+- Error message (what went wrong)
+- Stack trace location (file, line, function)
+- Error type (JavaScript, Go, API, etc.)
+- Additional context (URL, user agent, etc.)
+
+## Step 2: Search for Relevant Code
+Use search_text to find:
+- The exact error location from stack trace
+- Function/variable names mentioned in error
+- Related API endpoints or handlers
+
+Example:
+{"type": "search_text", "query": "<function_name>", "path": "<directory>"}
+
+## Step 3: Read Relevant Files
+Use read_file to examine:
+- Files identified in search
+- Code around the error location
+- Related dependencies
+
+Example:
+{"type": "read_file", "path": "<file_path>"}
+
+## Step 4: Analyze Root Cause
+Determine:
+- What specific bug occurred (undefined variable, nil pointer, API mismatch, etc.)
+- Why it happened (missing import, duplicate declaration, wrong format, etc.)
+- The correct fix approach
+
+## Step 5: Propose Fix
+Create a fix using write_file or apply_patch:
+- For small targeted changes: Use apply_patch with unified diff
+- For larger rewrites: Use write_file with complete new content
+
+Example patch:
+{"type": "apply_patch", "path": "<file>", "patch": "--- a/file\n+++ b/file\n@@ -X,Y +A,B @@\n-old line\n+new line"}
+
+## Step 6: Create CEO Approval Request
+Use create_bead to request approval:
+
+{"type": "create_bead", "bead": {
+  "title": "[CEO] Code Fix Approval: <Brief Description>",
+  "description": "## Code Fix Proposal\n\n**Original Bug:** ` + b.ID + `\n\n### Root Cause Analysis\n<Explain what went wrong and why>\n\n### Proposed Fix\n<High-level solution description>\n\n### Changes Required\n<Unified diff or description of changes>\n\n### Risk Assessment\n**Risk Level:** Low/Medium/High\n**Side Effects:** <List any potential issues>\n**Testing:** <How to verify the fix>\n\n### Recommendation\nI recommend approval because <reasoning>.",
+  "type": "decision",
+  "priority": 0,
+  "tags": ["code-fix", "approval-required", "auto-bug-fix"]
+}}
+
+## Step 7: Wait for Approval
+After creating the approval bead:
+- Add comment to this bug bead linking to approval request
+- Wait for CEO to review and approve/reject
+- If approved, the fix will be applied in a follow-up dispatch
+
+## Important Notes
+- Be thorough in root cause analysis
+- Consider side effects and edge cases
+- Test your understanding by reading related code
+- Propose conservative, minimal fixes
+- Document your reasoning clearly
+
+## Output Format
+Provide your investigation as a series of actions following the workflow above.
+Use the "notes" field in your JSON response to explain your reasoning at each step.
+`
 }
