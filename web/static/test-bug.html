@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Bug for Self-Healing</title>
+</head>
+<body>
+    <h1>Test Bug Page</h1>
+    <p>This page will trigger a simple, obvious JavaScript error for testing the self-healing workflow.</p>
+    <button onclick="triggerBug()">Click to Trigger Bug</button>
+
+    <script>
+        // Report errors to AgentiCorp
+        window.addEventListener('error', function(event) {
+            const bugReport = {
+                title: `UI Error: ${event.error?.name || 'Error'}: ${event.error?.message || event.message}`,
+                source: 'frontend',
+                error_type: 'js_error',
+                message: event.error?.message || event.message,
+                stack_trace: event.error?.stack || '',
+                context: {
+                    url: window.location.href,
+                    user_agent: navigator.userAgent,
+                    viewport: `${window.innerWidth}x${window.innerHeight}`,
+                    line: event.lineno,
+                    column: event.colno,
+                    source_file: event.filename
+                },
+                severity: 'high',
+                occurred_at: new Date().toISOString()
+            };
+
+            fetch('/api/v1/auto-file-bug', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(bugReport)
+            }).then(r => r.json())
+              .then(data => console.log('Bug filed:', data))
+              .catch(e => console.error('Failed to file bug:', e));
+        });
+
+        function triggerBug() {
+            // Simple, obvious bug: calling undefined function
+            thisRunctuonDoesNotExist();
+        }
+    </script>
+</body>
+</html>

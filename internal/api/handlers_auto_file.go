@@ -67,7 +67,7 @@ func (s *Server) HandleAutoFileBug(w http.ResponseWriter, r *http.Request) {
 
 ---
 *This bug was automatically filed by the AgentiCorp error tracking system.*
-*Assigned to QA Engineer for triage.*
+*Will be automatically routed to the appropriate specialist for investigation.*
 `,
 		req.Source,
 		req.ErrorType,
@@ -108,11 +108,14 @@ func (s *Server) HandleAutoFileBug(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Assign to QA Engineer
-	if err := s.assignToQAEngineer(bead.ID, projectID); err != nil {
-		// Log but don't fail - bead is created
-		fmt.Printf("[WARN] Failed to assign auto-filed bead %s to QA Engineer: %v\n", bead.ID, err)
-	}
+	// NOTE: Do NOT assign to QA Engineer here - let the auto-bug router
+	// analyze the bug and route it to the appropriate specialist agent.
+	// The dispatcher will handle assignment after routing.
+	//
+	// Old code (disabled):
+	// if err := s.assignToQAEngineer(bead.ID, projectID); err != nil {
+	// 	fmt.Printf("[WARN] Failed to assign auto-filed bead %s to QA Engineer: %v\n", bead.ID, err)
+	// }
 
 	// Add tags
 	updates := map[string]interface{}{
@@ -123,9 +126,8 @@ func (s *Server) HandleAutoFileBug(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.respondJSON(w, http.StatusCreated, map[string]interface{}{
-		"bead_id":     bead.ID,
-		"message":     "Bug report filed automatically",
-		"assigned_to": "qa-engineer",
+		"bead_id": bead.ID,
+		"message": "Bug report filed automatically. Will be auto-routed to specialist.",
 	})
 }
 
