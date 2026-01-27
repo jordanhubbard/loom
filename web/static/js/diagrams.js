@@ -7,8 +7,7 @@
  * - Message Flow: Components → Events → Messages
  */
 
-// API Base URL (should match app.js)
-const API_BASE = '/api/v1';
+// API Base URL (defined in app.js, shared globally)
 
 // Diagram state
 let diagramState = {
