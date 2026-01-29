@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/jordanhubbard/agenticorp/internal/observability"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
@@ -137,6 +138,12 @@ func (m *Manager) GetEventBus() *eventbus.EventBus {
 
 // StartAgentWorkflow starts an agent lifecycle workflow
 func (m *Manager) StartAgentWorkflow(ctx context.Context, agentID, projectID, personaName, name string) error {
+	start := time.Now()
+	observability.Info("temporal.workflow_start", map[string]interface{}{
+		"workflow":   "agent_lifecycle",
+		"agent_id":   agentID,
+		"project_id": projectID,
+	})
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                  fmt.Sprintf("agent-%s", agentID),
 		TaskQueue:           m.config.TaskQueue,
@@ -153,15 +160,33 @@ func (m *Manager) StartAgentWorkflow(ctx context.Context, agentID, projectID, pe
 
 	_, err := m.client.ExecuteWorkflow(ctx, workflowOptions, workflows.AgentLifecycleWorkflow, input)
 	if err != nil {
+		observability.Error("temporal.workflow_start", map[string]interface{}{
+			"workflow":    "agent_lifecycle",
+			"agent_id":    agentID,
+			"project_id":  projectID,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return fmt.Errorf("failed to start agent workflow: %w", err)
 	}
 
 	log.Printf("Started agent workflow for agent %s", agentID)
+	observability.Info("temporal.workflow_started", map[string]interface{}{
+		"workflow":    "agent_lifecycle",
+		"agent_id":    agentID,
+		"project_id":  projectID,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 	return nil
 }
 
 // StartBeadWorkflow starts a bead processing workflow
 func (m *Manager) StartBeadWorkflow(ctx context.Context, beadID, projectID, title, description string, priority int, beadType string) error {
+	start := time.Now()
+	observability.Info("temporal.workflow_start", map[string]interface{}{
+		"workflow":   "bead_processing",
+		"bead_id":    beadID,
+		"project_id": projectID,
+	})
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                  fmt.Sprintf("bead-%s", beadID),
 		TaskQueue:           m.config.TaskQueue,
@@ -180,15 +205,34 @@ func (m *Manager) StartBeadWorkflow(ctx context.Context, beadID, projectID, titl
 
 	_, err := m.client.ExecuteWorkflow(ctx, workflowOptions, workflows.BeadProcessingWorkflow, input)
 	if err != nil {
+		observability.Error("temporal.workflow_start", map[string]interface{}{
+			"workflow":    "bead_processing",
+			"bead_id":     beadID,
+			"project_id":  projectID,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return fmt.Errorf("failed to start bead workflow: %w", err)
 	}
 
 	log.Printf("Started bead workflow for bead %s", beadID)
+	observability.Info("temporal.workflow_started", map[string]interface{}{
+		"workflow":    "bead_processing",
+		"bead_id":     beadID,
+		"project_id":  projectID,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 	return nil
 }
 
 // StartDecisionWorkflow starts a decision approval workflow
 func (m *Manager) StartDecisionWorkflow(ctx context.Context, decisionID, projectID, question, requesterID string, options []string) error {
+	start := time.Now()
+	observability.Info("temporal.workflow_start", map[string]interface{}{
+		"workflow":     "decision",
+		"decision_id":  decisionID,
+		"project_id":   projectID,
+		"requester_id": requesterID,
+	})
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                  fmt.Sprintf("decision-%s", decisionID),
 		TaskQueue:           m.config.TaskQueue,
@@ -206,15 +250,33 @@ func (m *Manager) StartDecisionWorkflow(ctx context.Context, decisionID, project
 
 	_, err := m.client.ExecuteWorkflow(ctx, workflowOptions, workflows.DecisionWorkflow, input)
 	if err != nil {
+		observability.Error("temporal.workflow_start", map[string]interface{}{
+			"workflow":    "decision",
+			"decision_id": decisionID,
+			"project_id":  projectID,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return fmt.Errorf("failed to start decision workflow: %w", err)
 	}
 
 	log.Printf("Started decision workflow for decision %s", decisionID)
+	observability.Info("temporal.workflow_started", map[string]interface{}{
+		"workflow":    "decision",
+		"decision_id": decisionID,
+		"project_id":  projectID,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 	return nil
 }
 
 // StartDispatcherWorkflow starts the periodic dispatch loop workflow.
 func (m *Manager) StartDispatcherWorkflow(ctx context.Context, projectID string, interval time.Duration) error {
+	start := time.Now()
+	observability.Info("temporal.workflow_start", map[string]interface{}{
+		"workflow":   "dispatcher",
+		"project_id": projectID,
+		"interval":   interval.String(),
+	})
 	workflowID := "dispatcher-global"
 	if projectID != "" {
 		workflowID = fmt.Sprintf("dispatcher-%s", projectID)
@@ -233,6 +295,11 @@ func (m *Manager) StartDispatcherWorkflow(ctx context.Context, projectID string,
 
 	_, err := m.client.ExecuteWorkflow(ctx, workflowOptions, workflows.DispatcherWorkflow, input)
 	if err != nil {
+		observability.Error("temporal.workflow_start", map[string]interface{}{
+			"workflow":    "dispatcher",
+			"project_id":  projectID,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return fmt.Errorf("failed to start dispatcher workflow: %w", err)
 	}
 
@@ -241,11 +308,22 @@ func (m *Manager) StartDispatcherWorkflow(ctx context.Context, projectID string,
 	} else {
 		log.Printf("Started dispatcher workflow for project %s", projectID)
 	}
+	observability.Info("temporal.workflow_started", map[string]interface{}{
+		"workflow":    "dispatcher",
+		"project_id":  projectID,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 	return nil
 }
 
 // StartProviderHeartbeatWorkflow starts or resumes a provider heartbeat workflow.
 func (m *Manager) StartProviderHeartbeatWorkflow(ctx context.Context, providerID string, interval time.Duration) error {
+	start := time.Now()
+	observability.Info("temporal.workflow_start", map[string]interface{}{
+		"workflow":    "provider_heartbeat",
+		"provider_id": providerID,
+		"interval":    interval.String(),
+	})
 	workflowID := fmt.Sprintf("provider-heartbeat-%s", providerID)
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                  workflowID,
@@ -264,10 +342,20 @@ func (m *Manager) StartProviderHeartbeatWorkflow(ctx context.Context, providerID
 		if _, ok := err.(*serviceerror.WorkflowExecutionAlreadyStarted); ok {
 			return nil
 		}
+		observability.Error("temporal.workflow_start", map[string]interface{}{
+			"workflow":    "provider_heartbeat",
+			"provider_id": providerID,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return fmt.Errorf("failed to start provider heartbeat workflow: %w", err)
 	}
 
 	log.Printf("Started provider heartbeat workflow for %s", providerID)
+	observability.Info("temporal.workflow_started", map[string]interface{}{
+		"workflow":    "provider_heartbeat",
+		"provider_id": providerID,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 	return nil
 }
 
@@ -276,6 +364,11 @@ func (m *Manager) StartAgentiCorpHeartbeatWorkflow(ctx context.Context, interval
 	if interval == 0 {
 		interval = 10 * time.Second
 	}
+	start := time.Now()
+	observability.Info("temporal.workflow_start", map[string]interface{}{
+		"workflow": "agenticorp_heartbeat",
+		"interval": interval.String(),
+	})
 
 	workflowID := "agenticorp-heartbeat-master"
 	workflowOptions := client.StartWorkflowOptions{
@@ -294,15 +387,28 @@ func (m *Manager) StartAgentiCorpHeartbeatWorkflow(ctx context.Context, interval
 		if _, ok := err.(*serviceerror.WorkflowExecutionAlreadyStarted); ok {
 			return nil // Already running
 		}
+		observability.Error("temporal.workflow_start", map[string]interface{}{
+			"workflow":    "agenticorp_heartbeat",
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return fmt.Errorf("failed to start agenticorp heartbeat workflow: %w", err)
 	}
 
 	log.Printf("Started AgentiCorp master heartbeat workflow with %v interval", interval)
+	observability.Info("temporal.workflow_started", map[string]interface{}{
+		"workflow":    "agenticorp_heartbeat",
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 	return nil
 }
 
 // RunProviderQueryWorkflow executes a direct provider query workflow and waits for result.
 func (m *Manager) RunProviderQueryWorkflow(ctx context.Context, input workflows.ProviderQueryWorkflowInput) (*activities.ProviderQueryResult, error) {
+	start := time.Now()
+	observability.Info("temporal.workflow_start", map[string]interface{}{
+		"workflow":    "provider_query",
+		"provider_id": input.ProviderID,
+	})
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                  fmt.Sprintf("repl-%d", time.Now().UTC().UnixNano()),
 		TaskQueue:           m.config.TaskQueue,
@@ -312,13 +418,28 @@ func (m *Manager) RunProviderQueryWorkflow(ctx context.Context, input workflows.
 
 	we, err := m.client.ExecuteWorkflow(ctx, workflowOptions, workflows.ProviderQueryWorkflow, input)
 	if err != nil {
+		observability.Error("temporal.workflow_start", map[string]interface{}{
+			"workflow":    "provider_query",
+			"provider_id": input.ProviderID,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return nil, fmt.Errorf("failed to start provider query workflow: %w", err)
 	}
 
 	var result activities.ProviderQueryResult
 	if err := we.Get(ctx, &result); err != nil {
+		observability.Error("temporal.workflow_result", map[string]interface{}{
+			"workflow":    "provider_query",
+			"provider_id": input.ProviderID,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return nil, fmt.Errorf("failed to get provider query result: %w", err)
 	}
+	observability.Info("temporal.workflow_result", map[string]interface{}{
+		"workflow":    "provider_query",
+		"provider_id": input.ProviderID,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 
 	return &result, nil
 }
@@ -326,27 +447,80 @@ func (m *Manager) RunProviderQueryWorkflow(ctx context.Context, input workflows.
 // SignalAgentWorkflow sends a signal to an agent workflow
 func (m *Manager) SignalAgentWorkflow(ctx context.Context, agentID, signalName string, arg interface{}) error {
 	workflowID := fmt.Sprintf("agent-%s", agentID)
-	return m.client.SignalWorkflow(ctx, workflowID, "", signalName, arg)
+	start := time.Now()
+	err := m.client.SignalWorkflow(ctx, workflowID, "", signalName, arg)
+	if err != nil {
+		observability.Error("temporal.signal", map[string]interface{}{
+			"workflow":    "agent_lifecycle",
+			"agent_id":    agentID,
+			"signal":      signalName,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
+		return err
+	}
+	observability.Info("temporal.signal", map[string]interface{}{
+		"workflow":    "agent_lifecycle",
+		"agent_id":    agentID,
+		"signal":      signalName,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
+	return nil
 }
 
 // SignalBeadWorkflow sends a signal to a bead workflow
 func (m *Manager) SignalBeadWorkflow(ctx context.Context, beadID, signalName string, arg interface{}) error {
 	workflowID := fmt.Sprintf("bead-%s", beadID)
-	return m.client.SignalWorkflow(ctx, workflowID, "", signalName, arg)
+	start := time.Now()
+	err := m.client.SignalWorkflow(ctx, workflowID, "", signalName, arg)
+	if err != nil {
+		observability.Error("temporal.signal", map[string]interface{}{
+			"workflow":    "bead_processing",
+			"bead_id":     beadID,
+			"signal":      signalName,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
+		return err
+	}
+	observability.Info("temporal.signal", map[string]interface{}{
+		"workflow":    "bead_processing",
+		"bead_id":     beadID,
+		"signal":      signalName,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
+	return nil
 }
 
 // QueryAgentWorkflow queries an agent workflow
 func (m *Manager) QueryAgentWorkflow(ctx context.Context, agentID, queryType string) (interface{}, error) {
 	workflowID := fmt.Sprintf("agent-%s", agentID)
+	start := time.Now()
 	resp, err := m.client.QueryWorkflow(ctx, workflowID, "", queryType)
 	if err != nil {
+		observability.Error("temporal.query", map[string]interface{}{
+			"workflow":    "agent_lifecycle",
+			"agent_id":    agentID,
+			"query":       queryType,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return nil, err
 	}
 
 	var result interface{}
 	if err := resp.Get(&result); err != nil {
+		observability.Error("temporal.query", map[string]interface{}{
+			"workflow":    "agent_lifecycle",
+			"agent_id":    agentID,
+			"query":       queryType,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return nil, err
 	}
+	observability.Info("temporal.query", map[string]interface{}{
+		"workflow":    "agent_lifecycle",
+		"agent_id":    agentID,
+		"query":       queryType,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 
 	return result, nil
 }

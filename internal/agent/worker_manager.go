@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jordanhubbard/agenticorp/internal/actions"
+	"github.com/jordanhubbard/agenticorp/internal/observability"
 	"github.com/jordanhubbard/agenticorp/internal/provider"
 	"github.com/jordanhubbard/agenticorp/internal/temporal/eventbus"
 	"github.com/jordanhubbard/agenticorp/internal/worker"
@@ -297,6 +298,25 @@ func (m *WorkerManager) ExecuteTask(ctx context.Context, agentID string, task *w
 		return nil, fmt.Errorf("agent not found: %s", agentID)
 	}
 
+	startTime := time.Now()
+	projectID := agent.ProjectID
+	taskID := ""
+	beadID := ""
+	if task != nil {
+		if task.ProjectID != "" {
+			projectID = task.ProjectID
+		}
+		taskID = task.ID
+		beadID = task.BeadID
+		observability.Info("agent.task_start", map[string]interface{}{
+			"agent_id":    agent.ID,
+			"project_id":  projectID,
+			"provider_id": agent.ProviderID,
+			"task_id":     taskID,
+			"bead_id":     beadID,
+		})
+	}
+
 	// Update agent status
 	m.UpdateAgentStatus(agentID, "working")
 	if task != nil && task.BeadID != "" {
@@ -323,6 +343,15 @@ func (m *WorkerManager) ExecuteTask(ctx context.Context, agentID string, task *w
 	// Execute task through worker pool
 	result, err := m.workerPool.ExecuteTask(ctx, task, agentID)
 	if err != nil {
+		observability.Error("agent.task_complete", map[string]interface{}{
+			"agent_id":    agent.ID,
+			"project_id":  projectID,
+			"provider_id": agent.ProviderID,
+			"task_id":     taskID,
+			"bead_id":     beadID,
+			"duration_ms": time.Since(startTime).Milliseconds(),
+			"success":     false,
+		}, err)
 		return nil, fmt.Errorf("task execution failed: %w", err)
 	}
 
@@ -363,6 +392,18 @@ func (m *WorkerManager) ExecuteTask(ctx context.Context, agentID string, task *w
 	// Update last active time
 	m.UpdateHeartbeat(agentID)
 
+	if task != nil {
+		observability.Info("agent.task_complete", map[string]interface{}{
+			"agent_id":    agent.ID,
+			"project_id":  projectID,
+			"provider_id": agent.ProviderID,
+			"task_id":     taskID,
+			"bead_id":     beadID,
+			"duration_ms": time.Since(startTime).Milliseconds(),
+			"success":     result.Success,
+			"error":       result.Error,
+		})
+	}
 	log.Printf("Agent %s completed task %s", agent.Name, task.ID)
 
 	return result, nil
@@ -457,6 +498,14 @@ func (m *WorkerManager) UpdateAgentStatus(id, status string) error {
 			"provider_id":  agent.ProviderID,
 		})
 	}
+	observability.Info("agent.status_update", map[string]interface{}{
+		"agent_id":        agent.ID,
+		"project_id":      agent.ProjectID,
+		"provider_id":     agent.ProviderID,
+		"previous_status": oldStatus,
+		"status":          status,
+		"bead_id":         agent.CurrentBead,
+	})
 
 	return nil
 }
@@ -485,6 +534,13 @@ func (m *WorkerManager) AssignBead(agentID, beadID string) error {
 			"provider_id": agent.ProviderID,
 		})
 	}
+	observability.Info("agent.assign_bead", map[string]interface{}{
+		"agent_id":    agent.ID,
+		"project_id":  agent.ProjectID,
+		"provider_id": agent.ProviderID,
+		"bead_id":     beadID,
+		"old_bead":    oldBead,
+	})
 
 	return nil
 }

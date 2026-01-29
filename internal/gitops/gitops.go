@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jordanhubbard/agenticorp/internal/observability"
 	"github.com/jordanhubbard/agenticorp/pkg/models"
 )
 
@@ -16,6 +17,36 @@ import (
 type Manager struct {
 	baseWorkDir   string // Base directory for all project clones (e.g., /app/src)
 	projectKeyDir string // Base directory for per-project SSH keys
+}
+
+func logGitEvent(event string, project *models.Project, fields map[string]interface{}) {
+	payload := make(map[string]interface{})
+	if project != nil {
+		payload["project_id"] = project.ID
+		payload["git_repo"] = project.GitRepo
+		payload["branch"] = project.Branch
+	}
+	for k, v := range fields {
+		payload[k] = v
+	}
+	observability.Info(event, payload)
+}
+
+func logGitError(event string, project *models.Project, fields map[string]interface{}, err error) {
+	payload := make(map[string]interface{})
+	if project != nil {
+		payload["project_id"] = project.ID
+		payload["git_repo"] = project.GitRepo
+		payload["branch"] = project.Branch
+	}
+	for k, v := range fields {
+		payload[k] = v
+	}
+	observability.Error(event, payload, err)
+}
+
+func projectIDFromWorkDir(workDir string) string {
+	return filepath.Base(workDir)
 }
 
 // NewManager creates a new git operations manager
@@ -45,6 +76,10 @@ func (m *Manager) CloneProject(ctx context.Context, project *models.Project) err
 	}
 
 	workDir := m.GetProjectWorkDir(project.ID)
+	start := time.Now()
+	logGitEvent("git.clone.start", project, map[string]interface{}{
+		"work_dir": workDir,
+	})
 
 	// Check if already cloned
 	if _, err := os.Stat(filepath.Join(workDir, ".git")); err == nil {
@@ -72,13 +107,26 @@ func (m *Manager) CloneProject(ctx context.Context, project *models.Project) err
 
 	// Configure auth if needed
 	if err := m.configureAuth(cmd, project); err != nil {
+		logGitError("git.clone.error", project, map[string]interface{}{
+			"work_dir":    workDir,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return fmt.Errorf("failed to configure git auth: %w", err)
 	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logGitError("git.clone.error", project, map[string]interface{}{
+			"work_dir":    workDir,
+			"duration_ms": time.Since(start).Milliseconds(),
+			"output":      strings.TrimSpace(string(output)),
+		}, err)
 		return fmt.Errorf("git clone failed: %w\nOutput: %s", err, string(output))
 	}
+	logGitEvent("git.clone.success", project, map[string]interface{}{
+		"work_dir":    workDir,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 
 	// Update project metadata
 	project.WorkDir = workDir
@@ -95,6 +143,10 @@ func (m *Manager) CloneProject(ctx context.Context, project *models.Project) err
 // PullProject pulls latest changes from remote
 func (m *Manager) PullProject(ctx context.Context, project *models.Project) error {
 	workDir := m.GetProjectWorkDir(project.ID)
+	start := time.Now()
+	logGitEvent("git.pull.start", project, map[string]interface{}{
+		"work_dir": workDir,
+	})
 
 	if _, err := os.Stat(filepath.Join(workDir, ".git")); os.IsNotExist(err) {
 		return fmt.Errorf("project %s not cloned, call CloneProject first", project.ID)
@@ -104,13 +156,26 @@ func (m *Manager) PullProject(ctx context.Context, project *models.Project) erro
 	cmd.Dir = workDir
 
 	if err := m.configureAuth(cmd, project); err != nil {
+		logGitError("git.pull.error", project, map[string]interface{}{
+			"work_dir":    workDir,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return fmt.Errorf("failed to configure git auth: %w", err)
 	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logGitError("git.pull.error", project, map[string]interface{}{
+			"work_dir":    workDir,
+			"duration_ms": time.Since(start).Milliseconds(),
+			"output":      strings.TrimSpace(string(output)),
+		}, err)
 		return fmt.Errorf("git pull failed: %w\nOutput: %s", err, string(output))
 	}
+	logGitEvent("git.pull.success", project, map[string]interface{}{
+		"work_dir":    workDir,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 
 	// Update metadata
 	project.LastSyncAt = timePtr(time.Now())
@@ -124,9 +189,19 @@ func (m *Manager) PullProject(ctx context.Context, project *models.Project) erro
 // CommitChanges commits all changes in the project work directory
 func (m *Manager) CommitChanges(ctx context.Context, project *models.Project, message, authorName, authorEmail string) error {
 	workDir := m.GetProjectWorkDir(project.ID)
+	start := time.Now()
+	logGitEvent("git.commit.start", project, map[string]interface{}{
+		"work_dir": workDir,
+		"message":  message,
+	})
 
 	// Stage all changes
 	if err := m.runGitCommand(ctx, workDir, "add", "."); err != nil {
+		logGitError("git.commit.error", project, map[string]interface{}{
+			"work_dir":    workDir,
+			"duration_ms": time.Since(start).Milliseconds(),
+			"step":        "add",
+		}, err)
 		return fmt.Errorf("git add failed: %w", err)
 	}
 
@@ -135,10 +210,20 @@ func (m *Manager) CommitChanges(ctx context.Context, project *models.Project, me
 	statusCmd.Dir = workDir
 	statusOutput, err := statusCmd.Output()
 	if err != nil {
+		logGitError("git.commit.error", project, map[string]interface{}{
+			"work_dir":    workDir,
+			"duration_ms": time.Since(start).Milliseconds(),
+			"step":        "status",
+		}, err)
 		return fmt.Errorf("git status failed: %w", err)
 	}
 
 	if len(strings.TrimSpace(string(statusOutput))) == 0 {
+		logGitEvent("git.commit.skipped", project, map[string]interface{}{
+			"work_dir":    workDir,
+			"duration_ms": time.Since(start).Milliseconds(),
+			"reason":      "no_changes",
+		})
 		return nil // No changes to commit
 	}
 
@@ -159,8 +244,17 @@ func (m *Manager) CommitChanges(ctx context.Context, project *models.Project, me
 	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logGitError("git.commit.error", project, map[string]interface{}{
+			"work_dir":    workDir,
+			"duration_ms": time.Since(start).Milliseconds(),
+			"output":      strings.TrimSpace(string(output)),
+		}, err)
 		return fmt.Errorf("git commit failed: %w\nOutput: %s", err, string(output))
 	}
+	logGitEvent("git.commit.success", project, map[string]interface{}{
+		"work_dir":    workDir,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 
 	// Update commit hash
 	if hash, err := m.GetCurrentCommit(workDir); err == nil {
@@ -173,18 +267,35 @@ func (m *Manager) CommitChanges(ctx context.Context, project *models.Project, me
 // PushChanges pushes committed changes to remote
 func (m *Manager) PushChanges(ctx context.Context, project *models.Project) error {
 	workDir := m.GetProjectWorkDir(project.ID)
+	start := time.Now()
+	logGitEvent("git.push.start", project, map[string]interface{}{
+		"work_dir": workDir,
+	})
 
 	cmd := exec.CommandContext(ctx, "git", "push")
 	cmd.Dir = workDir
 
 	if err := m.configureAuth(cmd, project); err != nil {
+		logGitError("git.push.error", project, map[string]interface{}{
+			"work_dir":    workDir,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return fmt.Errorf("failed to configure git auth: %w", err)
 	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logGitError("git.push.error", project, map[string]interface{}{
+			"work_dir":    workDir,
+			"duration_ms": time.Since(start).Milliseconds(),
+			"output":      strings.TrimSpace(string(output)),
+		}, err)
 		return fmt.Errorf("git push failed: %w\nOutput: %s", err, string(output))
 	}
+	logGitEvent("git.push.success", project, map[string]interface{}{
+		"work_dir":    workDir,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 
 	return nil
 }
@@ -192,26 +303,52 @@ func (m *Manager) PushChanges(ctx context.Context, project *models.Project) erro
 // Status returns git status for a project workdir.
 func (m *Manager) Status(ctx context.Context, projectID string) (string, error) {
 	workDir := m.GetProjectWorkDir(projectID)
+	start := time.Now()
 	if _, err := os.Stat(filepath.Join(workDir, ".git")); os.IsNotExist(err) {
-		return "", fmt.Errorf("project %s not cloned", projectID)
+		err := fmt.Errorf("project %s not cloned", projectID)
+		logGitError("git.status.error", &models.Project{ID: projectID}, map[string]interface{}{
+			"work_dir": workDir,
+		}, err)
+		return "", err
 	}
 	output, err := m.runGitCommandWithOutput(ctx, workDir, "status", "-sb")
 	if err != nil {
+		logGitError("git.status.error", &models.Project{ID: projectID}, map[string]interface{}{
+			"work_dir":    workDir,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return "", err
 	}
+	logGitEvent("git.status", &models.Project{ID: projectID}, map[string]interface{}{
+		"work_dir":    workDir,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 	return strings.TrimSpace(output), nil
 }
 
 // Diff returns git diff for a project workdir.
 func (m *Manager) Diff(ctx context.Context, projectID string) (string, error) {
 	workDir := m.GetProjectWorkDir(projectID)
+	start := time.Now()
 	if _, err := os.Stat(filepath.Join(workDir, ".git")); os.IsNotExist(err) {
-		return "", fmt.Errorf("project %s not cloned", projectID)
+		err := fmt.Errorf("project %s not cloned", projectID)
+		logGitError("git.diff.error", &models.Project{ID: projectID}, map[string]interface{}{
+			"work_dir": workDir,
+		}, err)
+		return "", err
 	}
 	output, err := m.runGitCommandWithOutput(ctx, workDir, "diff")
 	if err != nil {
+		logGitError("git.diff.error", &models.Project{ID: projectID}, map[string]interface{}{
+			"work_dir":    workDir,
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return "", err
 	}
+	logGitEvent("git.diff", &models.Project{ID: projectID}, map[string]interface{}{
+		"work_dir":    workDir,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 	return strings.TrimSpace(output), nil
 }
 
@@ -295,25 +432,59 @@ func (m *Manager) configureAuth(cmd *exec.Cmd, project *models.Project) error {
 
 // runGitCommand is a helper to run git commands in a work directory
 func (m *Manager) runGitCommand(ctx context.Context, workDir string, args ...string) error {
+	start := time.Now()
+	projectID := projectIDFromWorkDir(workDir)
+	logGitEvent("git.command.start", &models.Project{ID: projectID}, map[string]interface{}{
+		"work_dir": workDir,
+		"args":     args,
+	})
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = workDir
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logGitError("git.command.error", &models.Project{ID: projectID}, map[string]interface{}{
+			"work_dir":    workDir,
+			"args":        args,
+			"duration_ms": time.Since(start).Milliseconds(),
+			"output":      strings.TrimSpace(string(output)),
+		}, err)
 		return fmt.Errorf("git command failed: %w\nOutput: %s", err, string(output))
 	}
+	logGitEvent("git.command.success", &models.Project{ID: projectID}, map[string]interface{}{
+		"work_dir":    workDir,
+		"args":        args,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 
 	return nil
 }
 
 func (m *Manager) runGitCommandWithOutput(ctx context.Context, workDir string, args ...string) (string, error) {
+	start := time.Now()
+	projectID := projectIDFromWorkDir(workDir)
+	logGitEvent("git.command.start", &models.Project{ID: projectID}, map[string]interface{}{
+		"work_dir": workDir,
+		"args":     args,
+	})
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = workDir
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logGitError("git.command.error", &models.Project{ID: projectID}, map[string]interface{}{
+			"work_dir":    workDir,
+			"args":        args,
+			"duration_ms": time.Since(start).Milliseconds(),
+			"output":      strings.TrimSpace(string(output)),
+		}, err)
 		return "", fmt.Errorf("git %s failed: %w\nOutput: %s", strings.Join(args, " "), err, string(output))
 	}
+	logGitEvent("git.command.success", &models.Project{ID: projectID}, map[string]interface{}{
+		"work_dir":    workDir,
+		"args":        args,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 	return string(output), nil
 }
 
@@ -334,9 +505,15 @@ func (m *Manager) EnsureProjectSSHKey(projectID string) (string, error) {
 	if projectID == "" {
 		return "", fmt.Errorf("project ID is required")
 	}
+	project := &models.Project{ID: projectID}
+	start := time.Now()
+	logGitEvent("git.ssh_key.ensure.start", project, map[string]interface{}{})
 
 	keyDir := m.projectKeyDirForProject(projectID)
 	if err := os.MkdirAll(keyDir, 0700); err != nil {
+		logGitError("git.ssh_key.ensure.error", project, map[string]interface{}{
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return "", fmt.Errorf("failed to create project ssh directory: %w", err)
 	}
 
@@ -344,21 +521,32 @@ func (m *Manager) EnsureProjectSSHKey(projectID string) (string, error) {
 	publicPath := m.projectPublicKeyPath(projectID)
 	if _, err := os.Stat(privatePath); os.IsNotExist(err) {
 		if err := m.generateSSHKeyPair(privatePath); err != nil {
+			logGitError("git.ssh_key.ensure.error", project, map[string]interface{}{
+				"duration_ms": time.Since(start).Milliseconds(),
+			}, err)
 			return "", err
 		}
 	}
 
 	if _, err := os.Stat(publicPath); os.IsNotExist(err) {
 		if err := m.writePublicKeyFromPrivate(privatePath, publicPath); err != nil {
+			logGitError("git.ssh_key.ensure.error", project, map[string]interface{}{
+				"duration_ms": time.Since(start).Milliseconds(),
+			}, err)
 			return "", err
 		}
 	}
 
 	keyBytes, err := os.ReadFile(publicPath)
 	if err != nil {
+		logGitError("git.ssh_key.ensure.error", project, map[string]interface{}{
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return "", fmt.Errorf("failed to read public key: %w", err)
 	}
-
+	logGitEvent("git.ssh_key.ensure.success", project, map[string]interface{}{
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 	return strings.TrimSpace(string(keyBytes)), nil
 }
 
@@ -372,17 +560,29 @@ func (m *Manager) RotateProjectSSHKey(projectID string) (string, error) {
 	if projectID == "" {
 		return "", fmt.Errorf("project ID is required")
 	}
+	project := &models.Project{ID: projectID}
+	start := time.Now()
+	logGitEvent("git.ssh_key.rotate.start", project, map[string]interface{}{})
 	privatePath := m.projectPrivateKeyPath(projectID)
 	publicPath := m.projectPublicKeyPath(projectID)
 	_ = os.Remove(privatePath)
 	_ = os.Remove(publicPath)
 	if err := m.generateSSHKeyPair(privatePath); err != nil {
+		logGitError("git.ssh_key.rotate.error", project, map[string]interface{}{
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return "", err
 	}
 	keyBytes, err := os.ReadFile(publicPath)
 	if err != nil {
+		logGitError("git.ssh_key.rotate.error", project, map[string]interface{}{
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return "", fmt.Errorf("failed to read public key: %w", err)
 	}
+	logGitEvent("git.ssh_key.rotate.success", project, map[string]interface{}{
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 	return strings.TrimSpace(string(keyBytes)), nil
 }
 
@@ -418,14 +618,26 @@ func (m *Manager) CheckRemoteAccess(ctx context.Context, project *models.Project
 	if project.GitRepo == "" || project.GitRepo == "." {
 		return nil
 	}
+	start := time.Now()
+	logGitEvent("git.ls_remote.start", project, map[string]interface{}{})
 	cmd := exec.CommandContext(ctx, "git", "ls-remote", project.GitRepo, "HEAD")
 	if err := m.configureAuth(cmd, project); err != nil {
+		logGitError("git.ls_remote.error", project, map[string]interface{}{
+			"duration_ms": time.Since(start).Milliseconds(),
+		}, err)
 		return err
 	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		logGitError("git.ls_remote.error", project, map[string]interface{}{
+			"duration_ms": time.Since(start).Milliseconds(),
+			"output":      strings.TrimSpace(string(output)),
+		}, err)
 		return fmt.Errorf("git ls-remote failed: %w: %s", err, strings.TrimSpace(string(output)))
 	}
+	logGitEvent("git.ls_remote.success", project, map[string]interface{}{
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
 	return nil
 }
 

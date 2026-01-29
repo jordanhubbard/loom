@@ -27,6 +27,7 @@ import (
 	"github.com/jordanhubbard/agenticorp/internal/modelcatalog"
 	internalmodels "github.com/jordanhubbard/agenticorp/internal/models"
 	"github.com/jordanhubbard/agenticorp/internal/motivation"
+	"github.com/jordanhubbard/agenticorp/internal/observability"
 	"github.com/jordanhubbard/agenticorp/internal/orgchart"
 	"github.com/jordanhubbard/agenticorp/internal/persona"
 	"github.com/jordanhubbard/agenticorp/internal/project"
@@ -750,9 +751,6 @@ func (a *AgentiCorp) ExecuteCommand(ctx context.Context, req executor.ExecuteCom
 }
 
 func (a *AgentiCorp) LogAction(ctx context.Context, actx actions.ActionContext, action actions.Action, result actions.Result) {
-	if a.logManager == nil {
-		return
-	}
 	metadata := map[string]interface{}{
 		"agent_id":    actx.AgentID,
 		"bead_id":     actx.BeadID,
@@ -764,7 +762,10 @@ func (a *AgentiCorp) LogAction(ctx context.Context, actx actions.ActionContext, 
 	for k, v := range result.Metadata {
 		metadata[k] = v
 	}
-	a.logManager.Log(logging.LogLevelInfo, "actions", "action executed", metadata)
+	if a.logManager != nil {
+		a.logManager.Log(logging.LogLevelInfo, "actions", "action executed", metadata)
+	}
+	observability.Info("agent.action", metadata)
 }
 
 // GetCommandLogs retrieves command logs with filters
@@ -2481,16 +2482,28 @@ func (a *AgentiCorp) UnblockDependents(decisionID string) error {
 func (a *AgentiCorp) ClaimBead(beadID, agentID string) error {
 	// Verify agent exists
 	if _, err := a.agentManager.GetAgent(agentID); err != nil {
+		observability.Error("bead.claim", map[string]interface{}{
+			"agent_id": agentID,
+			"bead_id":  beadID,
+		}, err)
 		return fmt.Errorf("agent not found: %w", err)
 	}
 
 	// Claim the bead
 	if err := a.beadsManager.ClaimBead(beadID, agentID); err != nil {
+		observability.Error("bead.claim", map[string]interface{}{
+			"agent_id": agentID,
+			"bead_id":  beadID,
+		}, err)
 		return fmt.Errorf("failed to claim bead: %w", err)
 	}
 
 	// Update agent status
 	if err := a.agentManager.AssignBead(agentID, beadID); err != nil {
+		observability.Error("agent.assign_bead", map[string]interface{}{
+			"agent_id": agentID,
+			"bead_id":  beadID,
+		}, err)
 		return fmt.Errorf("failed to assign bead to agent: %w", err)
 	}
 
@@ -2506,6 +2519,17 @@ func (a *AgentiCorp) ClaimBead(beadID, agentID string) error {
 			"status": string(models.BeadStatusInProgress),
 		})
 	}
+
+	projectID := ""
+	if b, err := a.beadsManager.GetBead(beadID); err == nil && b != nil {
+		projectID = b.ProjectID
+	}
+	observability.Info("bead.claim", map[string]interface{}{
+		"agent_id":   agentID,
+		"bead_id":    beadID,
+		"project_id": projectID,
+		"status":     "claimed",
+	})
 
 	return nil
 }

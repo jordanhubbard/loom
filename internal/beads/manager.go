@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jordanhubbard/agenticorp/internal/observability"
 	"github.com/jordanhubbard/agenticorp/pkg/models"
 	"gopkg.in/yaml.v3"
 )
@@ -245,6 +246,9 @@ func (m *Manager) UpdateBead(id string, updates map[string]interface{}) error {
 		return fmt.Errorf("bead not found: %s", id)
 	}
 
+	previousAssigned := bead.AssignedTo
+	assignedUpdated := false
+
 	// Apply updates
 	if status, ok := updates["status"].(models.BeadStatus); ok {
 		bead.Status = status
@@ -271,6 +275,7 @@ func (m *Manager) UpdateBead(id string, updates map[string]interface{}) error {
 	}
 	if assignedTo, ok := updates["assigned_to"].(string); ok {
 		bead.AssignedTo = assignedTo
+		assignedUpdated = true
 	}
 	if description, ok := updates["description"].(string); ok {
 		bead.Description = description
@@ -305,6 +310,15 @@ func (m *Manager) UpdateBead(id string, updates map[string]interface{}) error {
 	bead.UpdatedAt = time.Now()
 	m.workGraph.UpdatedAt = time.Now()
 
+	if assignedUpdated && previousAssigned != bead.AssignedTo {
+		observability.Info("bead.assignment_updated", map[string]interface{}{
+			"bead_id":              bead.ID,
+			"project_id":           bead.ProjectID,
+			"assigned_to":          bead.AssignedTo,
+			"previous_assigned_to": previousAssigned,
+		})
+	}
+
 	// Save to filesystem
 	if err := m.SaveBeadToFilesystem(bead, m.beadsPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to save bead to filesystem: %v\n", err)
@@ -320,16 +334,35 @@ func (m *Manager) ClaimBead(beadID, agentID string) error {
 
 	bead, ok := m.beads[beadID]
 	if !ok {
-		return fmt.Errorf("bead not found: %s", beadID)
+		err := fmt.Errorf("bead not found: %s", beadID)
+		observability.Error("bead.claim", map[string]interface{}{
+			"agent_id": agentID,
+			"bead_id":  beadID,
+		}, err)
+		return err
 	}
 
 	if bead.AssignedTo != "" && bead.AssignedTo != agentID {
-		return fmt.Errorf("bead already claimed by agent %s", bead.AssignedTo)
+		err := fmt.Errorf("bead already claimed by agent %s", bead.AssignedTo)
+		observability.Error("bead.claim", map[string]interface{}{
+			"agent_id":    agentID,
+			"bead_id":     beadID,
+			"assigned_to": bead.AssignedTo,
+			"project_id":  bead.ProjectID,
+		}, err)
+		return err
 	}
 
 	bead.AssignedTo = agentID
 	bead.Status = models.BeadStatusInProgress
 	bead.UpdatedAt = time.Now()
+
+	observability.Info("bead.claim", map[string]interface{}{
+		"agent_id":   agentID,
+		"bead_id":    bead.ID,
+		"project_id": bead.ProjectID,
+		"status":     "claimed",
+	})
 
 	if err := m.SaveBeadToFilesystem(bead, m.beadsPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to save bead to filesystem: %v\n", err)

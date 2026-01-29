@@ -12,6 +12,7 @@ import (
 
 	"github.com/jordanhubbard/agenticorp/internal/agent"
 	"github.com/jordanhubbard/agenticorp/internal/beads"
+	"github.com/jordanhubbard/agenticorp/internal/observability"
 	"github.com/jordanhubbard/agenticorp/internal/project"
 	"github.com/jordanhubbard/agenticorp/internal/provider"
 	"github.com/jordanhubbard/agenticorp/internal/temporal/eventbus"
@@ -394,8 +395,18 @@ func (d *Dispatcher) DispatchOnce(ctx context.Context, projectID string) (*Dispa
 	if candidate.AssignedTo == "" {
 		if err := d.beads.ClaimBead(candidate.ID, ag.ID); err != nil {
 			d.setStatus(StatusParked, "failed to claim bead")
+			observability.Error("dispatch.claim", map[string]interface{}{
+				"agent_id":   ag.ID,
+				"bead_id":    candidate.ID,
+				"project_id": candidate.ProjectID,
+			}, err)
 			return &DispatchResult{Dispatched: false, ProjectID: projectID}, nil
 		}
+		observability.Info("dispatch.claim", map[string]interface{}{
+			"agent_id":   ag.ID,
+			"bead_id":    candidate.ID,
+			"project_id": candidate.ProjectID,
+		})
 	}
 
 	// Increment dispatch count for tracking multi-step investigations
@@ -420,6 +431,12 @@ func (d *Dispatcher) DispatchOnce(ctx context.Context, projectID string) (*Dispa
 	log.Printf("[Dispatcher] Bead %s dispatch count: %d", candidate.ID, dispatchCount)
 
 	_ = d.agents.AssignBead(ag.ID, candidate.ID)
+	observability.Info("dispatch.assign", map[string]interface{}{
+		"agent_id":    ag.ID,
+		"bead_id":     candidate.ID,
+		"project_id":  selectedProjectID,
+		"provider_id": ag.ProviderID,
+	})
 	if d.eventBus != nil {
 		_ = d.eventBus.PublishBeadEvent(eventbus.EventTypeBeadAssigned, candidate.ID, selectedProjectID, map[string]interface{}{"assigned_to": ag.ID})
 		_ = d.eventBus.PublishBeadEvent(eventbus.EventTypeBeadStatusChange, candidate.ID, selectedProjectID, map[string]interface{}{"status": string(models.BeadStatusInProgress)})
@@ -440,6 +457,12 @@ func (d *Dispatcher) DispatchOnce(ctx context.Context, projectID string) (*Dispa
 	result, execErr := d.agents.ExecuteTask(ctx, ag.ID, task)
 	if execErr != nil {
 		d.setStatus(StatusParked, "execution failed")
+		observability.Error("dispatch.execute", map[string]interface{}{
+			"agent_id":    ag.ID,
+			"bead_id":     candidate.ID,
+			"project_id":  selectedProjectID,
+			"provider_id": ag.ProviderID,
+		}, execErr)
 
 		historyJSON, loopDetected, loopReason := buildDispatchHistory(candidate, ag.ID)
 		ctxUpdates := map[string]string{
@@ -594,6 +617,13 @@ func (d *Dispatcher) DispatchOnce(ctx context.Context, projectID string) (*Dispa
 	}
 
 	d.setStatus(StatusParked, "idle")
+	observability.Info("dispatch.execute", map[string]interface{}{
+		"agent_id":    ag.ID,
+		"bead_id":     candidate.ID,
+		"project_id":  selectedProjectID,
+		"provider_id": ag.ProviderID,
+		"status":      "success",
+	})
 	return &DispatchResult{Dispatched: true, ProjectID: selectedProjectID, BeadID: candidate.ID, AgentID: ag.ID, ProviderID: ag.ProviderID}, nil
 }
 
