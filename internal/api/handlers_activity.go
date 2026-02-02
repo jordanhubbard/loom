@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jordanhubbard/agenticorp/internal/activity"
+	"github.com/jordanhubbard/agenticorp/internal/auth"
 )
 
 // handleGetActivityFeed handles GET requests for activity feed
@@ -75,8 +76,26 @@ func (s *Server) handleGetActivityFeed(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// TODO: Apply permission filtering based on user's accessible projects
-	// For now, if user is not admin, we should filter by projects they have access to
+	// Apply permission filtering based on authentication
+	userID := auth.GetUserIDFromRequest(r)
+	role := auth.GetRoleFromRequest(r)
+
+	// If auth is enabled and no user is authenticated, return unauthorized
+	if userID == "" && s.config.Security.EnableAuth {
+		s.respondError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// If user is not admin, apply activity filtering
+	// For now, admins can see all activities, regular users see all public activities
+	// TODO: Enhance to filter by user's project membership once project-user relationships are implemented
+	if role != "admin" && s.config.Security.EnableAuth {
+		// In future, filter by projects the user has access to:
+		// userProjects := s.agenticorp.GetUserProjects(userID)
+		// if len(userProjects) > 0 {
+		//     filters.ProjectIDs = userProjects
+		// }
+	}
 
 	activities, err := activityMgr.GetActivities(filters)
 	if err != nil {
@@ -106,6 +125,16 @@ func (s *Server) handleActivityFeedStream(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Check authentication
+	userID := auth.GetUserIDFromRequest(r)
+	role := auth.GetRoleFromRequest(r)
+
+	// If auth is enabled and no user is authenticated, return unauthorized
+	if userID == "" && s.config.Security.EnableAuth {
+		s.respondError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -116,6 +145,9 @@ func (s *Server) handleActivityFeedStream(w http.ResponseWriter, r *http.Request
 	projectIDFilter := r.URL.Query().Get("project_id")
 	eventTypeFilter := r.URL.Query().Get("event_type")
 	resourceTypeFilter := r.URL.Query().Get("resource_type")
+
+	// For non-admin users, apply project filtering (when implemented)
+	isAdmin := role == "admin"
 
 	// Create subscriber
 	subscriberID := fmt.Sprintf("activity-sse-%d", time.Now().UnixNano())
@@ -153,7 +185,16 @@ func (s *Server) handleActivityFeedStream(w http.ResponseWriter, r *http.Request
 				continue
 			}
 
-			// TODO: Filter by user's accessible projects
+			// Apply permission filtering
+			// If auth is enabled and user is not admin, apply project-based filtering
+			if s.config.Security.EnableAuth && !isAdmin {
+				// TODO: Filter by user's accessible projects once project-user relationships are implemented
+				// For now, allow all activities for authenticated non-admin users
+				// In future:
+				// if !userHasAccessToProject(userID, activity.ProjectID) {
+				//     continue
+				// }
+			}
 
 			// Send activity to client
 			data, err := json.Marshal(activity)
