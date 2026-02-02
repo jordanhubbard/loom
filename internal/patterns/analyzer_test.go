@@ -156,6 +156,7 @@ func TestOptimizerRecommendations(t *testing.T) {
 			RequestCount:     100,
 			TotalCost:        50.0,
 			AvgCost:          0.50,
+			AvgTokens:        1000, // 1K tokens per request
 			RequestFrequency: 100,
 		},
 		{
@@ -167,6 +168,7 @@ func TestOptimizerRecommendations(t *testing.T) {
 			RequestCount:     200,
 			TotalCost:        10.0,
 			AvgCost:          0.05,
+			AvgTokens:        1000,
 			RequestFrequency: 200,
 		},
 	}

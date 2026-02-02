@@ -35,9 +35,9 @@ func (o *Optimizer) GenerateRecommendations(patterns []*UsagePattern) []*Optimiz
 			}
 		}
 
-		// Provider substitution recommendations (placeholder for future integration)
+		// Provider substitution recommendations (enhanced version)
 		if o.config.EnableSubstitutions && pattern.Type == "provider-model" {
-			opt := o.createSubstitutionOptimization(pattern)
+			opt := o.createEnhancedSubstitutionOptimization(pattern)
 			if opt != nil {
 				optimizations = append(optimizations, opt)
 			}
