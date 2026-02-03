@@ -164,13 +164,9 @@ func (r *Registry) ListByProject(projectID string) []*Motivation {
 	result := make([]*Motivation, 0)
 
 	// Include global motivations and project-specific ones
-	for _, m := range r.byProject[""] {
-		result = append(result, m)
-	}
+	result = append(result, r.byProject[""]...)
 	if projectID != "" {
-		for _, m := range r.byProject[projectID] {
-			result = append(result, m)
-		}
+		result = append(result, r.byProject[projectID]...)
 	}
 
 	return result

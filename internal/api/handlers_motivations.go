@@ -441,8 +441,9 @@ func (s *Server) handleMotivationHistory(w http.ResponseWriter, r *http.Request)
 	// Get limit from query (default 50)
 	limit := 50
 	if l := r.URL.Query().Get("limit"); l != "" {
-		if _, err := json.Marshal(l); err == nil {
+		if parsedLimit, err := json.Marshal(l); err == nil {
 			// Parse limit
+			_ = parsedLimit // TODO: Implement limit parsing
 		}
 	}
 

@@ -186,12 +186,6 @@ func TestPerpetualTaskCooldowns(t *testing.T) {
 			continue
 		}
 
-		// Cooldown should be slightly less than interval to avoid drift
-		expectedCooldown := intervalDuration - (10 * time.Minute)
-		if expectedCooldown < 0 {
-			expectedCooldown = intervalDuration - time.Minute
-		}
-
 		if m.CooldownPeriod > intervalDuration {
 			t.Errorf("Task %s has cooldown (%v) greater than interval (%v)",
 				m.Name, m.CooldownPeriod, intervalDuration)

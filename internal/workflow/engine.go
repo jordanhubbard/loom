@@ -409,7 +409,7 @@ func (e *Engine) GetEscalationInfo(exec *WorkflowExecution) (string, string, err
 
 `, exec.BeadID, wf.Name, wf.WorkflowType, exec.CycleCount, exec.CurrentNodeKey, exec.NodeAttemptCount, time.Now().Format(time.RFC3339))
 
-	if history != nil && len(history) > 0 {
+	if len(history) > 0 {
 		description += fmt.Sprintf("Total workflow steps: %d\n\n", len(history))
 		// Show last 5 steps
 		startIdx := 0

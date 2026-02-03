@@ -95,6 +95,7 @@ func (s *Server) handleGetActivityFeed(w http.ResponseWriter, r *http.Request) {
 		// if len(userProjects) > 0 {
 		//     filters.ProjectIDs = userProjects
 		// }
+		_ = userID // userID will be used for project filtering in future
 	}
 
 	activities, err := activityMgr.GetActivities(filters)
@@ -127,7 +128,7 @@ func (s *Server) handleActivityFeedStream(w http.ResponseWriter, r *http.Request
 
 	// Check authentication
 	userID := auth.GetUserIDFromRequest(r)
-	role := auth.GetRoleFromRequest(r)
+	_ = userID // TODO: Use for permission filtering
 
 	// If auth is enabled and no user is authenticated, return unauthorized
 	if userID == "" && s.config.Security.EnableAuth {
@@ -145,9 +146,6 @@ func (s *Server) handleActivityFeedStream(w http.ResponseWriter, r *http.Request
 	projectIDFilter := r.URL.Query().Get("project_id")
 	eventTypeFilter := r.URL.Query().Get("event_type")
 	resourceTypeFilter := r.URL.Query().Get("resource_type")
-
-	// For non-admin users, apply project filtering (when implemented)
-	isAdmin := role == "admin"
 
 	// Create subscriber
 	subscriberID := fmt.Sprintf("activity-sse-%d", time.Now().UnixNano())
@@ -186,15 +184,14 @@ func (s *Server) handleActivityFeedStream(w http.ResponseWriter, r *http.Request
 			}
 
 			// Apply permission filtering
-			// If auth is enabled and user is not admin, apply project-based filtering
-			if s.config.Security.EnableAuth && !isAdmin {
-				// TODO: Filter by user's accessible projects once project-user relationships are implemented
-				// For now, allow all activities for authenticated non-admin users
-				// In future:
-				// if !userHasAccessToProject(userID, activity.ProjectID) {
-				//     continue
-				// }
-			}
+			// TODO: Implement project-based filtering for non-admin users
+			// In future:
+			// role := auth.GetRoleFromRequest(r)
+			// if s.config.Security.EnableAuth && role != "admin" {
+			//     if !userHasAccessToProject(userID, activity.ProjectID) {
+			//         continue
+			//     }
+			// }
 
 			// Send activity to client
 			data, err := json.Marshal(activity)

@@ -340,7 +340,7 @@ func buildProviderCandidates(raw string, preferredOpenAIType string) ([]provider
 		scheme = "http"
 	}
 	port := u.Port()
-	ports := []string{}
+	var ports []string
 	if port != "" {
 		ports = []string{port}
 	} else {

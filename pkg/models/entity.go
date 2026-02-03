@@ -150,7 +150,7 @@ func (e *EntityMetadata) MergeAttributes(attrs map[string]any) {
 
 // AttributesJSON returns attributes as JSON bytes for database storage
 func (e *EntityMetadata) AttributesJSON() ([]byte, error) {
-	if e.Attributes == nil || len(e.Attributes) == 0 {
+	if len(e.Attributes) == 0 {
 		return []byte("{}"), nil
 	}
 	return json.Marshal(e.Attributes)
