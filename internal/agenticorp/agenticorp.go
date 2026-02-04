@@ -160,6 +160,8 @@ func New(cfg *config.Config) (*AgentiCorp, error) {
 	agentMgr := agent.NewWorkerManager(cfg.Agents.MaxConcurrent, providerRegistry, eb)
 	if db != nil {
 		agentMgr.SetAgentPersister(db)
+		// Enable conversation context support for multi-turn conversations
+		agentMgr.GetWorkerPool().SetDatabase(db)
 	}
 
 	// Initialize shell executor if database is available

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jordanhubbard/agenticorp/internal/database"
 	"github.com/jordanhubbard/agenticorp/internal/provider"
 	"github.com/jordanhubbard/agenticorp/pkg/models"
 )
@@ -15,6 +16,7 @@ import (
 type Pool struct {
 	workers    map[string]*Worker
 	registry   *provider.Registry
+	db         *database.Database
 	mu         sync.RWMutex
 	maxWorkers int
 }
@@ -26,6 +28,13 @@ func NewPool(registry *provider.Registry, maxWorkers int) *Pool {
 		registry:   registry,
 		maxWorkers: maxWorkers,
 	}
+}
+
+// SetDatabase sets the database for conversation context management
+func (p *Pool) SetDatabase(db *database.Database) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.db = db
 }
 
 // SpawnWorker creates and starts a new worker for an agent
@@ -52,6 +61,11 @@ func (p *Pool) SpawnWorker(agent *models.Agent, providerID string) (*Worker, err
 	// Create worker
 	workerID := fmt.Sprintf("worker-%s-%d", agent.ID, time.Now().Unix())
 	worker := NewWorker(workerID, agent, registeredProvider)
+
+	// Set database if available for conversation context support
+	if p.db != nil {
+		worker.SetDatabase(p.db)
+	}
 
 	// Start worker
 	if err := worker.Start(); err != nil {
