@@ -25,6 +25,10 @@ type CommandExecutor interface {
 	ExecuteCommand(ctx context.Context, req executor.ExecuteCommandRequest) (*executor.ExecuteCommandResult, error)
 }
 
+type TestRunner interface {
+	Run(ctx context.Context, projectPath string, testPattern, framework string, timeoutSeconds int) (map[string]interface{}, error)
+}
+
 type FileManager interface {
 	ReadFile(ctx context.Context, projectID, path string) (*files.FileResult, error)
 	WriteFile(ctx context.Context, projectID, path, content string) (*files.WriteResult, error)
@@ -64,6 +68,7 @@ type Router struct {
 	Closer    BeadCloser
 	Escalator BeadEscalator
 	Commands  CommandExecutor
+	Tests     TestRunner
 	Files     FileManager
 	Git       GitOperator
 	Logger    ActionLogger
@@ -299,6 +304,24 @@ func (r *Router) executeAction(ctx context.Context, action Action, actx ActionCo
 				"command_id": res.ID,
 				"exit_code":  res.ExitCode,
 			},
+		}
+	case ActionRunTests:
+		if r.Tests == nil {
+			return Result{ActionType: action.Type, Status: "error", Message: "test runner not configured"}
+		}
+		// Get project path from Files manager or use default
+		projectPath := "."
+		// TODO: Get actual project path from context or Files manager
+
+		result, err := r.Tests.Run(ctx, projectPath, action.TestPattern, action.Framework, action.TimeoutSeconds)
+		if err != nil {
+			return Result{ActionType: action.Type, Status: "error", Message: err.Error()}
+		}
+		return Result{
+			ActionType: action.Type,
+			Status:     "executed",
+			Message:    "tests executed",
+			Metadata:   result,
 		}
 	case ActionCreateBead:
 		if action.Bead == nil {

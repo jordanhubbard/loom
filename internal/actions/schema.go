@@ -14,6 +14,7 @@ const (
 	ActionEditCode    = "edit_code"
 	ActionWriteFile   = "write_file"
 	ActionRunCommand  = "run_command"
+	ActionRunTests    = "run_tests"
 	ActionCreateBead  = "create_bead"
 	ActionCloseBead   = "close_bead"
 	ActionEscalateCEO = "escalate_ceo"
@@ -46,6 +47,11 @@ type Action struct {
 
 	Command    string `json:"command,omitempty"`
 	WorkingDir string `json:"working_dir,omitempty"`
+
+	// Test execution fields
+	TestPattern    string `json:"test_pattern,omitempty"`
+	Framework      string `json:"framework,omitempty"`
+	TimeoutSeconds int    `json:"timeout_seconds,omitempty"`
 
 	Bead *BeadPayload `json:"bead,omitempty"`
 
@@ -249,6 +255,9 @@ func validateAction(action Action) error {
 		if action.Command == "" {
 			return errors.New("run_command requires command")
 		}
+	case ActionRunTests:
+		// All fields are optional - defaults will be used
+		// test_pattern, framework (auto-detect), timeout_seconds (default)
 	case ActionCreateBead:
 		if action.Bead == nil {
 			return errors.New("create_bead requires bead payload")
