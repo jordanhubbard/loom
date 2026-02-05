@@ -645,3 +645,70 @@ func (m *Manager) CheckRemoteAccess(ctx context.Context, project *models.Project
 func timePtr(t time.Time) *time.Time {
 	return &t
 }
+
+// GitOperator interface implementation methods
+
+// GetStatus returns git status as a structured response
+func (m *Manager) GetStatus(ctx context.Context) (map[string]interface{}, error) {
+	// For now, we don't have a way to get the current project context
+	// This is a placeholder that returns an error
+	// In a real implementation, we'd need to track the current project
+	return nil, fmt.Errorf("GetStatus requires project context - use Status(projectID) instead")
+}
+
+// GetDiff returns git diff as a structured response
+func (m *Manager) GetDiff(ctx context.Context, staged bool) (map[string]interface{}, error) {
+	// For now, we don't have a way to get the current project context
+	// This is a placeholder that returns an error
+	return nil, fmt.Errorf("GetDiff requires project context - use Diff(projectID) instead")
+}
+
+// CreateBranch creates a new git branch for a bead
+func (m *Manager) CreateBranch(ctx context.Context, beadID, description, baseBranch string) (map[string]interface{}, error) {
+	// Extract projectID from beadID or use current project
+	// For now, this is a placeholder implementation
+	return map[string]interface{}{
+		"branch":  fmt.Sprintf("bead-%s", beadID),
+		"base":    baseBranch,
+		"created": true,
+	}, fmt.Errorf("CreateBranch not yet implemented - requires project context")
+}
+
+// Commit creates a git commit for a bead's changes
+func (m *Manager) Commit(ctx context.Context, beadID, agentID, message string, files []string, allowAll bool) (map[string]interface{}, error) {
+	// This would use CommitChanges internally
+	// For now, this is a placeholder implementation
+	return map[string]interface{}{
+		"committed": true,
+		"message":   message,
+		"bead_id":   beadID,
+		"agent_id":  agentID,
+	}, fmt.Errorf("Commit not yet implemented - requires project context")
+}
+
+// Push pushes commits to remote for a bead
+func (m *Manager) Push(ctx context.Context, beadID, branch string, setUpstream bool) (map[string]interface{}, error) {
+	// This would use PushChanges internally
+	// For now, this is a placeholder implementation
+	return map[string]interface{}{
+		"pushed":       true,
+		"branch":       branch,
+		"set_upstream": setUpstream,
+		"bead_id":      beadID,
+	}, fmt.Errorf("Push not yet implemented - requires project context")
+}
+
+// CreatePR creates a pull request for a bead
+func (m *Manager) CreatePR(ctx context.Context, beadID, title, body, base, branch string, reviewers []string, draft bool) (map[string]interface{}, error) {
+	// This would use gh CLI or GitHub API
+	// For now, this is a placeholder implementation
+	return map[string]interface{}{
+		"created":   true,
+		"bead_id":   beadID,
+		"title":     title,
+		"base":      base,
+		"branch":    branch,
+		"draft":     draft,
+		"reviewers": reviewers,
+	}, fmt.Errorf("CreatePR not yet implemented - requires GitHub integration")
+}
