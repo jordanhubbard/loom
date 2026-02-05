@@ -2,7 +2,9 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/jordanhubbard/agenticorp/internal/executor"
 	"github.com/jordanhubbard/agenticorp/internal/files"
@@ -834,30 +836,44 @@ func (r *Router) handleFetchPR(ctx context.Context, action Action, actx ActionCo
 		return Result{ActionType: action.Type, Status: "error", Message: "pr_number is required"}
 	}
 
-	// Use gh CLI to fetch PR details
-	args := []string{"pr", "view", fmt.Sprintf("%d", action.PRNumber), "--json", "number,title,body,state,author,headRefName,baseRefName,createdAt,updatedAt"}
-
-	if action.IncludeFiles {
-		args = append(args, "--json", "files")
+	if r.Commands == nil {
+		return Result{ActionType: action.Type, Status: "error", Message: "command executor not configured"}
 	}
 
-	result, err := r.Git.ExecuteGitCommand(ctx, actx.ProjectID, args...)
-	if err != nil {
+	// Build gh CLI command
+	cmd := fmt.Sprintf("gh pr view %d --json number,title,body,state,author,headRefName,baseRefName,createdAt,updatedAt", action.PRNumber)
+	if action.IncludeFiles {
+		cmd += ",files"
+	}
+
+	// Execute command
+	cmdResult, err := r.Commands.ExecuteCommand(ctx, executor.ExecuteCommandRequest{
+		AgentID:   actx.AgentID,
+		BeadID:    actx.BeadID,
+		ProjectID: actx.ProjectID,
+		Command:   cmd,
+	})
+	if err != nil || !cmdResult.Success {
 		return Result{ActionType: action.Type, Status: "error", Message: fmt.Sprintf("failed to fetch PR: %v", err)}
 	}
 
 	// Parse JSON response
 	var prData map[string]interface{}
-	if err := json.Unmarshal([]byte(result), &prData); err != nil {
+	if err := json.Unmarshal([]byte(cmdResult.Stdout), &prData); err != nil {
 		return Result{ActionType: action.Type, Status: "error", Message: fmt.Sprintf("failed to parse PR data: %v", err)}
 	}
 
 	// Optionally fetch diff
 	if action.IncludeDiff {
-		diffArgs := []string{"pr", "diff", fmt.Sprintf("%d", action.PRNumber)}
-		diff, err := r.Git.ExecuteGitCommand(ctx, actx.ProjectID, diffArgs...)
-		if err == nil {
-			prData["diff"] = diff
+		diffCmd := fmt.Sprintf("gh pr diff %d", action.PRNumber)
+		diffResult, err := r.Commands.ExecuteCommand(ctx, executor.ExecuteCommandRequest{
+			AgentID:   actx.AgentID,
+			BeadID:    actx.BeadID,
+			ProjectID: actx.ProjectID,
+			Command:   diffCmd,
+		})
+		if err == nil && diffResult.Success {
+			prData["diff"] = diffResult.Stdout
 		}
 	}
 
@@ -928,36 +944,35 @@ func (r *Router) handleAddPRComment(ctx context.Context, action Action, actx Act
 		return Result{ActionType: action.Type, Status: "error", Message: "comment_body is required"}
 	}
 
-	var args []string
+	if r.Commands == nil {
+		return Result{ActionType: action.Type, Status: "error", Message: "command executor not configured"}
+	}
+
+	var cmd string
+	commentType := "general"
+
 	if action.CommentPath != "" && action.CommentLine > 0 {
 		// Inline comment on specific line
 		side := action.CommentSide
 		if side == "" {
 			side = "RIGHT"
 		}
-		args = []string{
-			"pr", "comment", fmt.Sprintf("%d", action.PRNumber),
-			"--body", action.CommentBody,
-			"--file", action.CommentPath,
-			"--line", fmt.Sprintf("%d", action.CommentLine),
-			"--side", side,
-		}
+		cmd = fmt.Sprintf("gh pr comment %d --body %q --file %s --line %d --side %s",
+			action.PRNumber, action.CommentBody, action.CommentPath, action.CommentLine, side)
+		commentType = "inline"
 	} else {
 		// General PR comment
-		args = []string{
-			"pr", "comment", fmt.Sprintf("%d", action.PRNumber),
-			"--body", action.CommentBody,
-		}
+		cmd = fmt.Sprintf("gh pr comment %d --body %q", action.PRNumber, action.CommentBody)
 	}
 
-	_, err := r.Git.ExecuteGitCommand(ctx, actx.ProjectID, args...)
-	if err != nil {
+	cmdResult, err := r.Commands.ExecuteCommand(ctx, executor.ExecuteCommandRequest{
+		AgentID:   actx.AgentID,
+		BeadID:    actx.BeadID,
+		ProjectID: actx.ProjectID,
+		Command:   cmd,
+	})
+	if err != nil || !cmdResult.Success {
 		return Result{ActionType: action.Type, Status: "error", Message: fmt.Sprintf("failed to add comment: %v", err)}
-	}
-
-	commentType := "general"
-	if action.CommentPath != "" {
-		commentType = "inline"
 	}
 
 	return Result{
@@ -984,25 +999,31 @@ func (r *Router) handleSubmitReview(ctx context.Context, action Action, actx Act
 		return Result{ActionType: action.Type, Status: "error", Message: "comment_body is required"}
 	}
 
+	if r.Commands == nil {
+		return Result{ActionType: action.Type, Status: "error", Message: "command executor not configured"}
+	}
+
 	// Validate review event
 	validEvents := map[string]bool{
-		"APPROVE":          true,
-		"REQUEST_CHANGES":  true,
-		"COMMENT":          true,
+		"APPROVE":         true,
+		"REQUEST_CHANGES": true,
+		"COMMENT":         true,
 	}
 	if !validEvents[action.ReviewEvent] {
 		return Result{ActionType: action.Type, Status: "error", Message: "invalid review_event"}
 	}
 
-	// Use gh CLI to submit review
-	args := []string{
-		"pr", "review", fmt.Sprintf("%d", action.PRNumber),
-		"--"+strings.ToLower(strings.ReplaceAll(action.ReviewEvent, "_", "-")),
-		"--body", action.CommentBody,
-	}
+	// Build gh CLI command
+	eventFlag := "--" + strings.ToLower(strings.ReplaceAll(action.ReviewEvent, "_", "-"))
+	cmd := fmt.Sprintf("gh pr review %d %s --body %q", action.PRNumber, eventFlag, action.CommentBody)
 
-	_, err := r.Git.ExecuteGitCommand(ctx, actx.ProjectID, args...)
-	if err != nil {
+	cmdResult, err := r.Commands.ExecuteCommand(ctx, executor.ExecuteCommandRequest{
+		AgentID:   actx.AgentID,
+		BeadID:    actx.BeadID,
+		ProjectID: actx.ProjectID,
+		Command:   cmd,
+	})
+	if err != nil || !cmdResult.Success {
 		return Result{ActionType: action.Type, Status: "error", Message: fmt.Sprintf("failed to submit review: %v", err)}
 	}
 
@@ -1025,14 +1046,20 @@ func (r *Router) handleRequestReview(ctx context.Context, action Action, actx Ac
 		return Result{ActionType: action.Type, Status: "error", Message: "reviewer is required"}
 	}
 
-	// Use gh CLI to request review
-	args := []string{
-		"pr", "edit", fmt.Sprintf("%d", action.PRNumber),
-		"--add-reviewer", action.Reviewer,
+	if r.Commands == nil {
+		return Result{ActionType: action.Type, Status: "error", Message: "command executor not configured"}
 	}
 
-	_, err := r.Git.ExecuteGitCommand(ctx, actx.ProjectID, args...)
-	if err != nil {
+	// Build gh CLI command
+	cmd := fmt.Sprintf("gh pr edit %d --add-reviewer %s", action.PRNumber, action.Reviewer)
+
+	cmdResult, err := r.Commands.ExecuteCommand(ctx, executor.ExecuteCommandRequest{
+		AgentID:   actx.AgentID,
+		BeadID:    actx.BeadID,
+		ProjectID: actx.ProjectID,
+		Command:   cmd,
+	})
+	if err != nil || !cmdResult.Success {
 		return Result{ActionType: action.Type, Status: "error", Message: fmt.Sprintf("failed to request review: %v", err)}
 	}
 
