@@ -333,17 +333,40 @@ func (d *Dispatcher) DispatchOnce(ctx context.Context, projectID string) (*Dispa
 				skippedReasons["dispatch_limit_but_progressing"]++
 				// Don't continue - allow this bead to be dispatched
 			} else {
-				// Truly stuck in a loop - escalate
+				// Truly stuck in a loop - escalate with comprehensive context
 				reason := fmt.Sprintf("dispatch_count=%d exceeded max_hops=%d, stuck in loop: %s",
 					dispatchCount, maxHops, loopReason)
 				log.Printf("[Dispatcher] WARNING: Bead %s is stuck in loop after %d dispatches, escalating to CEO: %s",
 					b.ID, dispatchCount, loopReason)
 
+				// Gather comprehensive escalation context
+				progressSummary := d.loopDetector.GetProgressSummary(b)
+				actionHistory := d.loopDetector.GetActionHistoryJSON(b)
+				nextSteps := d.loopDetector.SuggestNextSteps(b, loopReason)
+
+				// Format next steps as numbered list
+				nextStepsStr := ""
+				for i, step := range nextSteps {
+					nextStepsStr += fmt.Sprintf("%d. %s\n", i+1, step)
+				}
+
+				// Build comprehensive escalation reason
+				comprehensiveReason := fmt.Sprintf(`%s
+
+Progress Summary:
+%s
+
+Suggested Next Steps:
+%s
+
+This bead needs human attention to unblock the investigation.`,
+					reason, progressSummary, nextStepsStr)
+
 				decisionID := ""
 				if d.escalator == nil {
 					log.Printf("[Dispatcher] Failed to escalate bead %s: no escalator configured", b.ID)
 				} else {
-					decision, err := d.escalator.EscalateBeadToCEO(b.ID, reason, b.AssignedTo)
+					decision, err := d.escalator.EscalateBeadToCEO(b.ID, comprehensiveReason, b.AssignedTo)
 					if err != nil {
 						log.Printf("[Dispatcher] Failed to escalate bead %s: %v", b.ID, err)
 					} else {
@@ -351,16 +374,24 @@ func (d *Dispatcher) DispatchOnce(ctx context.Context, projectID string) (*Dispa
 					}
 				}
 
+				// Include comprehensive context in bead for later review
 				ctxUpdates := map[string]string{
 					"redispatch_requested":       "false",
 					"dispatch_escalated_at":      time.Now().UTC().Format(time.RFC3339),
 					"dispatch_escalation_reason": reason,
 					"loop_detection_reason":      loopReason,
-					"progress_summary":           d.loopDetector.GetProgressSummary(b),
+					"progress_summary":           progressSummary,
+					"action_history_snapshot":    actionHistory, // Full history at time of escalation
+					"suggested_next_steps":       nextStepsStr,
 				}
 				if decisionID != "" {
 					ctxUpdates["dispatch_escalation_decision_id"] = decisionID
 				}
+				// Include conversation session ID if available
+				if sessionID := b.Context["conversation_session_id"]; sessionID != "" {
+					ctxUpdates["conversation_session_id"] = sessionID
+				}
+
 				updates := map[string]interface{}{
 					"status":      models.BeadStatusBlocked,
 					"assigned_to": "",
@@ -370,6 +401,8 @@ func (d *Dispatcher) DispatchOnce(ctx context.Context, projectID string) (*Dispa
 					log.Printf("[Dispatcher] Failed to block bead %s after escalation: %v", b.ID, err)
 				}
 
+				log.Printf("[Dispatcher] Escalated bead %s with comprehensive context: %d suggested next steps",
+					b.ID, len(nextSteps))
 				skippedReasons["dispatch_limit_stuck_loop"]++
 				continue
 			}

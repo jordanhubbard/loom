@@ -297,3 +297,80 @@ func (ld *LoopDetector) ResetProgress(bead *models.Bead) {
 		delete(bead.Context, "progress_metrics")
 	}
 }
+
+// GetActionHistoryJSON returns the action history as JSON string
+func (ld *LoopDetector) GetActionHistoryJSON(bead *models.Bead) string {
+	history, err := ld.getActionHistory(bead)
+	if err != nil || len(history) == 0 {
+		return "[]"
+	}
+
+	historyJSON, err := json.Marshal(history)
+	if err != nil {
+		return "[]"
+	}
+
+	return string(historyJSON)
+}
+
+// SuggestNextSteps analyzes the situation and suggests actions for the CEO/human
+func (ld *LoopDetector) SuggestNextSteps(bead *models.Bead, loopReason string) []string {
+	suggestions := []string{}
+
+	history, err := ld.getActionHistory(bead)
+	if err != nil || len(history) == 0 {
+		suggestions = append(suggestions, "Review bead description and requirements")
+		suggestions = append(suggestions, "Provide more specific context or constraints")
+		return suggestions
+	}
+
+	// Analyze what actions were taken
+	actionTypes := make(map[string]int)
+	uniqueFiles := make(map[string]bool)
+
+	for _, action := range history {
+		actionTypes[action.ActionType]++
+
+		if filePath, ok := action.ActionData["file_path"].(string); ok {
+			uniqueFiles[filePath] = true
+		}
+	}
+
+	// Determine what's missing or problematic
+	hasReads := actionTypes["read_file"] > 0 || actionTypes["glob"] > 0 || actionTypes["grep"] > 0
+	hasEdits := actionTypes["edit_file"] > 0 || actionTypes["write_file"] > 0
+	hasTests := actionTypes["run_tests"] > 0 || actionTypes["test"] > 0
+	hasCommands := actionTypes["bash"] > 0 || actionTypes["execute"] > 0
+
+	// Generate suggestions based on what was attempted
+	if !hasReads {
+		suggestions = append(suggestions, "Agent hasn't explored the codebase - provide file locations or entry points")
+	} else if len(uniqueFiles) == 1 {
+		suggestions = append(suggestions, "Agent focused on single file - suggest additional files to examine")
+	}
+
+	if hasReads && !hasEdits {
+		suggestions = append(suggestions, "Agent read files but made no changes - clarify what needs to be modified")
+	}
+
+	if hasEdits && !hasTests {
+		suggestions = append(suggestions, "Agent made changes but didn't run tests - specify test commands or verification steps")
+	}
+
+	if !hasCommands {
+		suggestions = append(suggestions, "Agent didn't run any commands - provide build/test/debug commands")
+	}
+
+	if len(suggestions) == 0 {
+		// Agent tried many things but still stuck
+		suggestions = append(suggestions, "Agent attempted multiple approaches - problem may require domain expertise")
+		suggestions = append(suggestions, "Review error messages and test failures for missing dependencies or configuration")
+		suggestions = append(suggestions, "Consider if the task description is clear and achievable")
+	}
+
+	// Always add general suggestions
+	suggestions = append(suggestions, "Provide specific examples or reference implementations")
+	suggestions = append(suggestions, "Break down the task into smaller, more focused subtasks")
+
+	return suggestions
+}

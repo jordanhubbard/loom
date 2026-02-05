@@ -1,7 +1,9 @@
 package dispatch
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -515,4 +517,211 @@ func TestConcurrentActionRecording(t *testing.T) {
 	}
 
 	t.Logf("Recorded %d actions concurrently", len(history))
+}
+
+func TestGetActionHistoryJSON(t *testing.T) {
+	ld := NewLoopDetector()
+	bead := &models.Bead{
+		ID:      "bead-history-json",
+		Context: make(map[string]string),
+	}
+
+	// Empty history
+	historyJSON := ld.GetActionHistoryJSON(bead)
+	if historyJSON != "[]" {
+		t.Errorf("Expected empty array for no history, got: %s", historyJSON)
+	}
+
+	// Record some actions
+	actions := []ActionRecord{
+		{Timestamp: time.Now(), AgentID: "agent-1", ActionType: "read_file", ActionData: map[string]interface{}{"file_path": "a.go"}},
+		{Timestamp: time.Now(), AgentID: "agent-1", ActionType: "edit_file", ActionData: map[string]interface{}{"file_path": "a.go"}},
+	}
+
+	for _, action := range actions {
+		ld.RecordAction(bead, action)
+	}
+
+	historyJSON = ld.GetActionHistoryJSON(bead)
+	if historyJSON == "[]" {
+		t.Error("Expected non-empty history JSON")
+	}
+
+	// Verify it's valid JSON
+	var parsed []ActionRecord
+	if err := json.Unmarshal([]byte(historyJSON), &parsed); err != nil {
+		t.Errorf("Failed to parse history JSON: %v", err)
+	}
+
+	if len(parsed) != 2 {
+		t.Errorf("Expected 2 actions in parsed history, got %d", len(parsed))
+	}
+}
+
+func TestSuggestNextSteps_NoHistory(t *testing.T) {
+	ld := NewLoopDetector()
+	bead := &models.Bead{
+		ID:      "bead-no-history-suggestions",
+		Context: make(map[string]string),
+	}
+
+	suggestions := ld.SuggestNextSteps(bead, "no actions taken")
+
+	if len(suggestions) == 0 {
+		t.Error("Expected suggestions even with no history")
+	}
+
+	t.Logf("Suggestions for no history: %v", suggestions)
+}
+
+func TestSuggestNextSteps_OnlyReads(t *testing.T) {
+	ld := NewLoopDetector()
+	bead := &models.Bead{
+		ID:      "bead-only-reads",
+		Context: make(map[string]string),
+	}
+
+	// Record only read actions
+	for i := 0; i < 5; i++ {
+		action := ActionRecord{
+			Timestamp:  time.Now(),
+			AgentID:    "agent-1",
+			ActionType: "read_file",
+			ActionData: map[string]interface{}{"file_path": fmt.Sprintf("file%d.go", i)},
+		}
+		ld.RecordAction(bead, action)
+	}
+
+	suggestions := ld.SuggestNextSteps(bead, "read files but no changes")
+
+	if len(suggestions) == 0 {
+		t.Error("Expected suggestions for read-only scenario")
+	}
+
+	// Should suggest making changes
+	found := false
+	for _, s := range suggestions {
+		if strings.Contains(strings.ToLower(s), "modif") || strings.Contains(strings.ToLower(s), "chang") || strings.Contains(strings.ToLower(s), "clarif") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("Expected suggestion to clarify what to modify, got: %v", suggestions)
+	}
+
+	t.Logf("Suggestions for read-only: %v", suggestions)
+}
+
+func TestSuggestNextSteps_SingleFile(t *testing.T) {
+	ld := NewLoopDetector()
+	bead := &models.Bead{
+		ID:      "bead-single-file",
+		Context: make(map[string]string),
+	}
+
+	// Record multiple reads of same file
+	for i := 0; i < 5; i++ {
+		action := ActionRecord{
+			Timestamp:  time.Now(),
+			AgentID:    "agent-1",
+			ActionType: "read_file",
+			ActionData: map[string]interface{}{"file_path": "same.go"},
+		}
+		ld.RecordAction(bead, action)
+	}
+
+	suggestions := ld.SuggestNextSteps(bead, "stuck on single file")
+
+	// Should suggest examining additional files
+	found := false
+	for _, s := range suggestions {
+		if strings.Contains(strings.ToLower(s), "additional") || strings.Contains(strings.ToLower(s), "other") || strings.Contains(strings.ToLower(s), "file") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("Expected suggestion to examine additional files, got: %v", suggestions)
+	}
+
+	t.Logf("Suggestions for single file: %v", suggestions)
+}
+
+func TestSuggestNextSteps_EditsNoTests(t *testing.T) {
+	ld := NewLoopDetector()
+	bead := &models.Bead{
+		ID:      "bead-edits-no-tests",
+		Context: make(map[string]string),
+	}
+
+	// Record reads and edits but no tests
+	actions := []ActionRecord{
+		{Timestamp: time.Now(), AgentID: "agent-1", ActionType: "read_file", ActionData: map[string]interface{}{"file_path": "a.go"}},
+		{Timestamp: time.Now(), AgentID: "agent-1", ActionType: "edit_file", ActionData: map[string]interface{}{"file_path": "a.go"}},
+		{Timestamp: time.Now(), AgentID: "agent-1", ActionType: "edit_file", ActionData: map[string]interface{}{"file_path": "b.go"}},
+	}
+
+	for _, action := range actions {
+		ld.RecordAction(bead, action)
+	}
+
+	suggestions := ld.SuggestNextSteps(bead, "made changes but no validation")
+
+	// Should suggest running tests
+	found := false
+	for _, s := range suggestions {
+		if strings.Contains(strings.ToLower(s), "test") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("Expected suggestion to run tests, got: %v", suggestions)
+	}
+
+	t.Logf("Suggestions for edits without tests: %v", suggestions)
+}
+
+func TestSuggestNextSteps_ManyActionsStillStuck(t *testing.T) {
+	ld := NewLoopDetector()
+	bead := &models.Bead{
+		ID:      "bead-many-actions",
+		Context: make(map[string]string),
+	}
+
+	// Record diverse actions
+	actions := []ActionRecord{
+		{Timestamp: time.Now(), AgentID: "agent-1", ActionType: "read_file", ActionData: map[string]interface{}{"file_path": "a.go"}},
+		{Timestamp: time.Now(), AgentID: "agent-1", ActionType: "read_file", ActionData: map[string]interface{}{"file_path": "b.go"}},
+		{Timestamp: time.Now(), AgentID: "agent-1", ActionType: "edit_file", ActionData: map[string]interface{}{"file_path": "a.go"}},
+		{Timestamp: time.Now(), AgentID: "agent-1", ActionType: "run_tests", ActionData: map[string]interface{}{"command": "go test"}},
+		{Timestamp: time.Now(), AgentID: "agent-1", ActionType: "bash", ActionData: map[string]interface{}{"command": "go build"}},
+	}
+
+	for _, action := range actions {
+		ld.RecordAction(bead, action)
+	}
+
+	suggestions := ld.SuggestNextSteps(bead, "tried many approaches")
+
+	// Should suggest domain expertise or breaking down task
+	found := false
+	for _, s := range suggestions {
+		lower := strings.ToLower(s)
+		if strings.Contains(lower, "domain") || strings.Contains(lower, "expertise") ||
+			strings.Contains(lower, "smaller") || strings.Contains(lower, "subtask") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("Expected high-level suggestions for complex stuck case, got: %v", suggestions)
+	}
+
+	t.Logf("Suggestions for many actions: %v", suggestions)
 }
