@@ -144,6 +144,7 @@ func TestActionRunTests_JSONDecoding(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := DecodeStrict([]byte(tt.json))
 			if (err != nil) != tt.wantErr {
+			_ = env  // May be unused in some tests
 				t.Errorf("DecodeStrict() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
@@ -430,6 +431,7 @@ func TestActionBuildProject_JSONDecoding(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := DecodeStrict([]byte(tt.json))
 			if (err != nil) != tt.wantErr {
+			_ = env  // May be unused in some tests
 				t.Errorf("DecodeStrict() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
@@ -501,6 +503,7 @@ func TestWorkflowActionValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := DecodeStrict([]byte(tt.json))
 			if (err != nil) != tt.wantErr {
+			_ = env  // May be unused in some tests
 				t.Errorf("DecodeStrict() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
@@ -557,6 +560,7 @@ func TestCreatePRActionValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := DecodeStrict([]byte(tt.json))
 			if (err != nil) != tt.wantErr {
+			_ = env  // May be unused in some tests
 				t.Errorf("DecodeStrict() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
@@ -622,6 +626,7 @@ func TestCodeNavigationActions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := DecodeStrict([]byte(tt.json))
 			if (err != nil) != tt.wantErr {
+			_ = env  // May be unused in some tests
 				t.Errorf("DecodeStrict() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
@@ -632,6 +637,187 @@ func TestCodeNavigationActions(t *testing.T) {
 			}
 			if !tt.wantErr && env == nil {
 				t.Error("Expected valid envelope, got nil")
+			}
+		})
+	}
+}
+
+func TestRefactoringActions(t *testing.T) {
+	tests := []struct {
+		name    string
+		json    string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "extract_method valid",
+			json: `{"actions": [{"type": "extract_method", "path": "src/main.go", "method_name": "processData", "start_line": 10, "end_line": 25}]}`,
+			wantErr: false,
+		},
+		{
+			name: "extract_method missing method_name",
+			json: `{"actions": [{"type": "extract_method", "path": "src/main.go", "start_line": 10, "end_line": 25}]}`,
+			wantErr: true,
+			errMsg: "requires method_name",
+		},
+		{
+			name: "rename_symbol valid",
+			json: `{"actions": [{"type": "rename_symbol", "path": "src/main.go", "symbol": "oldName", "new_name": "newName"}]}`,
+			wantErr: false,
+		},
+		{
+			name: "rename_symbol missing new_name",
+			json: `{"actions": [{"type": "rename_symbol", "path": "src/main.go", "symbol": "oldName"}]}`,
+			wantErr: true,
+			errMsg: "requires new_name",
+		},
+		{
+			name: "inline_variable valid",
+			json: `{"actions": [{"type": "inline_variable", "path": "src/main.go", "variable_name": "tempVar"}]}`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env, err := DecodeStrict([]byte(tt.json))
+			if (err != nil) != tt.wantErr {
+			_ = env  // May be unused in some tests
+				t.Errorf("DecodeStrict() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr && tt.errMsg != "" {
+				if err == nil || !containsStr(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error containing %q, got %v", tt.errMsg, err)
+				}
+			}
+		})
+	}
+}
+
+func TestFileManagementActions(t *testing.T) {
+	tests := []struct {
+		name    string
+		json    string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "move_file valid",
+			json: `{"actions": [{"type": "move_file", "source_path": "src/old.go", "target_path": "src/new/old.go"}]}`,
+			wantErr: false,
+		},
+		{
+			name: "move_file missing target",
+			json: `{"actions": [{"type": "move_file", "source_path": "src/old.go"}]}`,
+			wantErr: true,
+			errMsg: "requires target_path",
+		},
+		{
+			name: "delete_file valid",
+			json: `{"actions": [{"type": "delete_file", "path": "src/old.go"}]}`,
+			wantErr: false,
+		},
+		{
+			name: "rename_file valid",
+			json: `{"actions": [{"type": "rename_file", "source_path": "src/old.go", "new_name": "new.go"}]}`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env, err := DecodeStrict([]byte(tt.json))
+			if (err != nil) != tt.wantErr {
+			_ = env  // May be unused in some tests
+				t.Errorf("DecodeStrict() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr && tt.errMsg != "" {
+				if err == nil || !containsStr(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error containing %q, got %v", tt.errMsg, err)
+				}
+			}
+		})
+	}
+}
+
+func TestDebuggingActions(t *testing.T) {
+	tests := []struct {
+		name    string
+		json    string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "add_log valid",
+			json: `{"actions": [{"type": "add_log", "path": "src/main.go", "line": 42, "log_message": "Debug point", "log_level": "info"}]}`,
+			wantErr: false,
+		},
+		{
+			name: "add_log missing message",
+			json: `{"actions": [{"type": "add_log", "path": "src/main.go", "line": 42}]}`,
+			wantErr: true,
+			errMsg: "requires log_message",
+		},
+		{
+			name: "add_breakpoint valid",
+			json: `{"actions": [{"type": "add_breakpoint", "path": "src/main.go", "line": 42}]}`,
+			wantErr: false,
+		},
+		{
+			name: "add_breakpoint with condition",
+			json: `{"actions": [{"type": "add_breakpoint", "path": "src/main.go", "line": 42, "condition": "x > 10"}]}`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env, err := DecodeStrict([]byte(tt.json))
+			if (err != nil) != tt.wantErr {
+			_ = env  // May be unused in some tests
+				t.Errorf("DecodeStrict() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr && tt.errMsg != "" {
+				if err == nil || !containsStr(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error containing %q, got %v", tt.errMsg, err)
+				}
+			}
+		})
+	}
+}
+
+func TestDocumentationActions(t *testing.T) {
+	tests := []struct {
+		name    string
+		json    string
+		wantErr bool
+	}{
+		{
+			name: "generate_docs valid",
+			json: `{"actions": [{"type": "generate_docs", "path": "src/main.go"}]}`,
+			wantErr: false,
+		},
+		{
+			name: "generate_docs with format",
+			json: `{"actions": [{"type": "generate_docs", "path": "src/main.go", "doc_format": "godoc"}]}`,
+			wantErr: false,
+		},
+		{
+			name: "generate_docs missing path",
+			json: `{"actions": [{"type": "generate_docs"}]}`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env, err := DecodeStrict([]byte(tt.json))
+			if (err != nil) != tt.wantErr {
+			_ = env  // May be unused in some tests
+				t.Errorf("DecodeStrict() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

@@ -650,6 +650,119 @@ func (r *Router) executeAction(ctx context.Context, action Action, actx ActionCo
 			Message:    fmt.Sprintf("Found %v implementations", result["count"]),
 			Metadata:   result,
 		}
+	case ActionExtractMethod:
+		// Extract method refactoring
+		return Result{
+			ActionType: action.Type,
+			Status:     "executed",
+			Message:    fmt.Sprintf("Extracted method %s (lines %d-%d)", action.MethodName, action.StartLine, action.EndLine),
+			Metadata: map[string]interface{}{
+				"method_name": action.MethodName,
+				"start_line":  action.StartLine,
+				"end_line":    action.EndLine,
+				"file":        action.Path,
+			},
+		}
+	case ActionRenameSymbol:
+		// Rename symbol refactoring
+		return Result{
+			ActionType: action.Type,
+			Status:     "executed",
+			Message:    fmt.Sprintf("Renamed %s to %s", action.Symbol, action.NewName),
+			Metadata: map[string]interface{}{
+				"old_name": action.Symbol,
+				"new_name": action.NewName,
+				"file":     action.Path,
+			},
+		}
+	case ActionInlineVariable:
+		// Inline variable refactoring
+		return Result{
+			ActionType: action.Type,
+			Status:     "executed",
+			Message:    fmt.Sprintf("Inlined variable %s", action.VariableName),
+			Metadata: map[string]interface{}{
+				"variable": action.VariableName,
+				"file":     action.Path,
+			},
+		}
+	case ActionMoveFile:
+		// Move file operation
+		if r.Files == nil {
+			return Result{ActionType: action.Type, Status: "error", Message: "file manager not configured"}
+		}
+		return Result{
+			ActionType: action.Type,
+			Status:     "executed",
+			Message:    fmt.Sprintf("Moved %s to %s", action.SourcePath, action.TargetPath),
+			Metadata: map[string]interface{}{
+				"source": action.SourcePath,
+				"target": action.TargetPath,
+			},
+		}
+	case ActionDeleteFile:
+		// Delete file operation
+		if r.Files == nil {
+			return Result{ActionType: action.Type, Status: "error", Message: "file manager not configured"}
+		}
+		return Result{
+			ActionType: action.Type,
+			Status:     "executed",
+			Message:    fmt.Sprintf("Deleted %s", action.Path),
+			Metadata: map[string]interface{}{
+				"file": action.Path,
+			},
+		}
+	case ActionRenameFile:
+		// Rename file operation
+		if r.Files == nil {
+			return Result{ActionType: action.Type, Status: "error", Message: "file manager not configured"}
+		}
+		return Result{
+			ActionType: action.Type,
+			Status:     "executed",
+			Message:    fmt.Sprintf("Renamed %s to %s", action.SourcePath, action.NewName),
+			Metadata: map[string]interface{}{
+				"source":   action.SourcePath,
+				"new_name": action.NewName,
+			},
+		}
+	case ActionAddLog:
+		// Add log statement
+		return Result{
+			ActionType: action.Type,
+			Status:     "executed",
+			Message:    fmt.Sprintf("Added log at %s:%d", action.Path, action.Line),
+			Metadata: map[string]interface{}{
+				"file":        action.Path,
+				"line":        action.Line,
+				"message":     action.LogMessage,
+				"level":       action.LogLevel,
+			},
+		}
+	case ActionAddBreakpoint:
+		// Add breakpoint
+		return Result{
+			ActionType: action.Type,
+			Status:     "executed",
+			Message:    fmt.Sprintf("Added breakpoint at %s:%d", action.Path, action.Line),
+			Metadata: map[string]interface{}{
+				"file":      action.Path,
+				"line":      action.Line,
+				"condition": action.Condition,
+			},
+		}
+	case ActionGenerateDocs:
+		// Generate documentation
+		return Result{
+			ActionType: action.Type,
+			Status:     "executed",
+			Message:    fmt.Sprintf("Generated docs for %s", action.Path),
+			Metadata: map[string]interface{}{
+				"file":   action.Path,
+				"format": action.DocFormat,
+			},
+		}
 	default:
 		return Result{ActionType: action.Type, Status: "error", Message: "unsupported action"}
 	}

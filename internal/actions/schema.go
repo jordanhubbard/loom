@@ -38,9 +38,26 @@ const (
 	ActionRejectBead      = "reject_bead"
 
 	// Code navigation actions
-	ActionFindReferences     = "find_references"
-	ActionGoToDefinition     = "go_to_definition"
+	ActionFindReferences      = "find_references"
+	ActionGoToDefinition      = "go_to_definition"
 	ActionFindImplementations = "find_implementations"
+
+	// Refactoring actions
+	ActionExtractMethod  = "extract_method"
+	ActionRenameSymbol   = "rename_symbol"
+	ActionInlineVariable = "inline_variable"
+
+	// File management actions
+	ActionMoveFile   = "move_file"
+	ActionDeleteFile = "delete_file"
+	ActionRenameFile = "rename_file"
+
+	// Debugging actions
+	ActionAddLog        = "add_log"
+	ActionAddBreakpoint = "add_breakpoint"
+
+	// Documentation generation actions
+	ActionGenerateDocs = "generate_docs"
 )
 
 type ActionEnvelope struct {
@@ -95,6 +112,25 @@ type Action struct {
 	Line     int    `json:"line,omitempty"`      // Line number for position-based queries
 	Column   int    `json:"column,omitempty"`    // Column number for position-based queries
 	Language string `json:"language,omitempty"`  // Language hint (go, typescript, python, etc.)
+
+	// Refactoring fields
+	NewName       string `json:"new_name,omitempty"`       // New name for rename_symbol/rename_file
+	MethodName    string `json:"method_name,omitempty"`    // Method name for extract_method
+	StartLine     int    `json:"start_line,omitempty"`     // Start line for extract_method
+	EndLine       int    `json:"end_line,omitempty"`       // End line for extract_method
+	VariableName  string `json:"variable_name,omitempty"`  // Variable name for inline_variable
+
+	// File management fields
+	SourcePath string `json:"source_path,omitempty"` // Source file path for move/rename
+	TargetPath string `json:"target_path,omitempty"` // Target file path for move/rename
+
+	// Debugging fields
+	LogMessage  string `json:"log_message,omitempty"`  // Log message for add_log
+	LogLevel    string `json:"log_level,omitempty"`    // Log level (info, warn, error, debug)
+	Condition   string `json:"condition,omitempty"`    // Breakpoint condition
+
+	// Documentation fields
+	DocFormat string `json:"doc_format,omitempty"` // Documentation format (godoc, jsdoc, markdown)
 
 	Bead *BeadPayload `json:"bead,omitempty"`
 
@@ -382,6 +418,72 @@ func validateAction(action Action) error {
 		}
 		if action.Symbol == "" && (action.Line == 0 || action.Column == 0) {
 			return errors.New("find_implementations requires either symbol or (line and column)")
+		}
+	case ActionExtractMethod:
+		if action.Path == "" {
+			return errors.New("extract_method requires path")
+		}
+		if action.MethodName == "" {
+			return errors.New("extract_method requires method_name")
+		}
+		if action.StartLine == 0 || action.EndLine == 0 {
+			return errors.New("extract_method requires start_line and end_line")
+		}
+	case ActionRenameSymbol:
+		if action.Path == "" {
+			return errors.New("rename_symbol requires path")
+		}
+		if action.Symbol == "" {
+			return errors.New("rename_symbol requires symbol")
+		}
+		if action.NewName == "" {
+			return errors.New("rename_symbol requires new_name")
+		}
+	case ActionInlineVariable:
+		if action.Path == "" {
+			return errors.New("inline_variable requires path")
+		}
+		if action.VariableName == "" {
+			return errors.New("inline_variable requires variable_name")
+		}
+	case ActionMoveFile:
+		if action.SourcePath == "" {
+			return errors.New("move_file requires source_path")
+		}
+		if action.TargetPath == "" {
+			return errors.New("move_file requires target_path")
+		}
+	case ActionDeleteFile:
+		if action.Path == "" {
+			return errors.New("delete_file requires path")
+		}
+	case ActionRenameFile:
+		if action.SourcePath == "" {
+			return errors.New("rename_file requires source_path")
+		}
+		if action.NewName == "" {
+			return errors.New("rename_file requires new_name")
+		}
+	case ActionAddLog:
+		if action.Path == "" {
+			return errors.New("add_log requires path")
+		}
+		if action.Line == 0 {
+			return errors.New("add_log requires line")
+		}
+		if action.LogMessage == "" {
+			return errors.New("add_log requires log_message")
+		}
+	case ActionAddBreakpoint:
+		if action.Path == "" {
+			return errors.New("add_breakpoint requires path")
+		}
+		if action.Line == 0 {
+			return errors.New("add_breakpoint requires line")
+		}
+	case ActionGenerateDocs:
+		if action.Path == "" {
+			return errors.New("generate_docs requires path")
 		}
 	default:
 		return fmt.Errorf("unknown action type: %s", action.Type)
