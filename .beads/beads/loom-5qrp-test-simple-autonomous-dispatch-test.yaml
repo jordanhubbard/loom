@@ -9,7 +9,7 @@ title: '[TEST] Simple autonomous dispatch test'
 description: 'This is a simple test bead to verify autonomous dispatch works. No workflow, no special requirements. Just assign to any idle agent and execute. Task: Echo ''Autonomous operation working\!'' and close this bead.'
 status: closed
 priority: 2
-projectid: agenticorp-self
+projectid: loom-self
 assignedto: agent-1770345233-CEO (Default)
 blockedby: []
 blocks: []

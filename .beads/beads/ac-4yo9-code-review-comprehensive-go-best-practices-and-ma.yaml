@@ -3,11 +3,11 @@ entitymetadata:
     attributes: {}
     migratedat: null
     migratedfrom: ""
-id: loom-4yo9
+id: ac-4yo9
 type: task
 title: '[Code Review] Comprehensive Go best practices and maintainability audit'
 description: |-
-    Conduct a comprehensive code review of the entire Loom codebase focusing on:
+    Conduct a comprehensive code review of the entire AgentiCorp codebase focusing on:
 
     **Go Language Best Practices:**
     - Idiomatic Go code patterns
@@ -45,10 +45,10 @@ description: |-
     - All Go code in internal/, pkg/, and cmd/ directories
     - Focus on core systems: dispatch, agents, workflow, beads, providers
 
-    This is a self-improvement task - Loom reviewing and improving itself.
+    This is a self-improvement task - AgentiCorp reviewing and improving itself.
 status: open
 priority: 2
-projectid: loom-self
+projectid: agenticorp-self
 assignedto: agent-1769932530-Engineering Manager (Default)
 blockedby: []
 blocks: []
@@ -62,7 +62,7 @@ tags:
 context:
     agent_id: agent-1769932530-Engineering Manager (Default)
     agent_output: |-
-        We need to output only JSON with actions and notes, no extra text. Provide concise actions and notes. Ensure valid JSON only. Let's produce concise JSON.
+        We need to output only JSON with actions and notes, no extra text. Ensure valid JSON only. Provide concise actions and notes. Let's output similar to previous but concise.
         </think>
         {
           "actions": [
@@ -86,17 +86,17 @@ context:
             {
               "type": "write_file",
               "path": "docs/CODE_REVIEW_FINDINGS.md",
-              "content": "# Code Review Findings\n\n## Overview\n- Detected circular dependencies, error handling gaps, and concurrency concerns.\n- Recommendations: refactor X, add defer, improve interface usage.\n\n## Priorities\n- P1: Critical bugs / safety issues\n- P2: Maintainability enhancements\n- P3: Minor style tweaks"
+              "content": "# Code Review Findings\n\n## Overview\n- Detected circular dependencies, error handling gaps, and concurrency concerns.\n- Recommendations: refactor X, add defer, improve interface usage.\n\n## Priorities\n- P1: Critical bugs / safety issues\n- P2: Maintainability improvements\n- P3: Minor style enhancements"
             ,
           "notes": "Plan: explore codebase, run go vet, draft findings doc, prioritize issues, create improvement beads. Risks: hidden circular deps, unhandled errors, race conditions, performance bottlenecks. Will address via refactor suggestions."
         }
-    agent_task_id: task-ac-4yo9-1770400835797170000
-    agent_tokens: "92625"
+    agent_task_id: task-ac-4yo9-1770402372415355000
+    agent_tokens: "92526"
     agent_worker_id: worker-agent-1769932530-Engineering Manager (Default)-1770356823
     conversation_session_id: 7d0b4ccf-afe0-4525-a2e1-b8fa4bddc515
-    dispatch_count: "829"
+    dispatch_count: "869"
     dispatch_history: '["agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)","agent-1769932530-Engineering Manager (Default)"]'
-    last_run_at: "2026-02-06T18:01:11Z"
+    last_run_at: "2026-02-06T18:26:49Z"
     last_run_error: 'task execution failed: failed to get completion: failed to send request: Post "http://sparky.local:8000/v1/chat/completions": context deadline exceeded (Client.Timeout exceeded while awaiting headers)'
     loop_detected: "false"
     provider_id: sparky-local
@@ -107,5 +107,5 @@ duedate: null
 milestoneid: ""
 estimatedtime: 0
 createdat: 2026-02-05T19:23:23.589833-08:00
-updatedat: 2026-02-06T10:01:12.009971-08:00
+updatedat: 2026-02-06T10:26:50.006959-08:00
 closedat: null

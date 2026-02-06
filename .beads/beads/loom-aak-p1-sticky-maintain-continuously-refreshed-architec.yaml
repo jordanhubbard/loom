@@ -11,7 +11,7 @@ description: |
 
     Goal
     - Maintain an up-to-date architecture diagram that reflects the current
-      AgentiCorp system.
+      Loom system.
 
     Trigger conditions (update is required when ANY occur)
     - A new service is added
@@ -54,7 +54,7 @@ description: |
     - Renumbered all sections to maintain consistency
 status: open
 priority: 1
-projectid: agenticorp-self
+projectid: loom-self
 assignedto: agent-1768861966-project-manager
 blockedby: []
 blocks: []

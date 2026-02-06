@@ -7,10 +7,10 @@ id: loom-kqh
 type: task
 title: P1 (sticky) User guide review by personas before release approval
 description: |
-    This is a sticky, always-on bead for the AgentiCorp project.
+    This is a sticky, always-on bead for the Loom project.
 
     Goal
-    - Ensure the AgentiCorp user guide is reviewed and augmented by relevant personas
+    - Ensure the Loom user guide is reviewed and augmented by relevant personas
       before any release can be approved by release engineers.
 
     Rules
@@ -31,7 +31,7 @@ description: |
     - Release approval includes the review evidence.
 status: open
 priority: 1
-projectid: agenticorp-self
+projectid: loom-self
 assignedto: agent-1768861966-project-manager
 blockedby: []
 blocks: []

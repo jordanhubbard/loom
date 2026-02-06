@@ -7,7 +7,7 @@ id: loom-2cko
 type: feature
 title: '[Feature] Real-time observability endpoint with pub/sub event streaming'
 description: |-
-    Create a real-time observability API endpoint that streams AgentiCorp operations to subscribers using a publish/subscribe model.
+    Create a real-time observability API endpoint that streams Loom operations to subscribers using a publish/subscribe model.
 
     **Requirements:**
 
@@ -38,7 +38,7 @@ description: |-
          "event_type": "agent.task_start",
          "agent_id": "agent-123-CEO",
          "bead_id": "ac-4yo9",
-         "project_id": "agenticorp-self",
+         "project_id": "loom-self",
          "details": {}
        }
        ```
@@ -72,10 +72,10 @@ description: |-
 
     **Priority:** P1 - Critical for monitoring autonomous operations
 
-    This will enable real-time visibility into AgentiCorp's self-improvement work.
+    This will enable real-time visibility into Loom's self-improvement work.
 status: open
 priority: 1
-projectid: agenticorp-self
+projectid: loom-self
 assignedto: ""
 blockedby: []
 blocks: []

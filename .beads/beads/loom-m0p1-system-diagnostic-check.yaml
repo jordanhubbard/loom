@@ -9,7 +9,7 @@ title: System diagnostic check
 description: This bead was auto-created to verify the work flow is operational. The system detected no beads in any project and created this diagnostic task. If you see this bead completed successfully, the work flow is functioning correctly.
 status: in_progress
 priority: 2
-projectid: agenticorp-self
+projectid: loom-self
 assignedto: Engineering Manager (Default)
 blockedby: []
 blocks: []

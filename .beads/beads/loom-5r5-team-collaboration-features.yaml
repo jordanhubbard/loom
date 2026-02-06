@@ -10,7 +10,7 @@ description: |
     Enable effective team collaboration on agent-driven projects with shared workspaces
     and real-time updates.
 
-    Problem: AgentiCorp is currently single-user focused, limiting team collaboration.
+    Problem: Loom is currently single-user focused, limiting team collaboration.
 
     Goals:
     - Shared workspaces
@@ -33,7 +33,7 @@ description: |
     Related document: personas/default/product-manager/FUTURE_GOALS.md (BEAD-010)
 status: open
 priority: 3
-projectid: agenticorp-self
+projectid: loom-self
 assignedto: ""
 blockedby: []
 blocks: []

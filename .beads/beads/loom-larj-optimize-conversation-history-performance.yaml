@@ -9,7 +9,7 @@ title: Optimize Conversation History Performance
 description: Optimize conversation history storage and retrieval for large conversations.
 status: open
 priority: 2
-projectid: agenticorp-self
+projectid: loom-self
 assignedto: ""
 blockedby: []
 blocks: []
