@@ -271,39 +271,39 @@ type LoomHeartbeatWorkflowInput struct {
 	Interval time.Duration // How often to beat (default 10s)
 }
 
-// LoomHeartbeatWorkflow is the master clock that keeps the entire state machine running
-// It pulses periodically to trigger work dispatch, provider heartbeats, and housekeeping tasks
+// LoomHeartbeatWorkflow is the Ralph Loop — the relentless work-draining engine.
+// Each beat: resets stuck agents, resolves stuck beads, then drains ALL
+// dispatchable work by calling DispatchOnce in a tight loop (capped at 50 per beat).
 func LoomHeartbeatWorkflow(ctx workflow.Context, input LoomHeartbeatWorkflowInput) error {
 	logger := workflow.GetLogger(ctx)
 	if input.Interval == 0 {
 		input.Interval = 10 * time.Second
 	}
 
-	logger.Info("Loom master heartbeat workflow started", "interval", input.Interval)
+	logger.Info("Ralph Loop started", "interval", input.Interval)
 
 	activityOptions := workflow.ActivityOptions{
-		StartToCloseTimeout: 30 * time.Second,
+		StartToCloseTimeout: 10 * time.Minute, // Ralph drains many beads per beat — LLM calls take time
 		RetryPolicy: &temporal.RetryPolicy{
-			MaximumAttempts: 1, // Don't retry heartbeat activities
+			MaximumAttempts: 1, // Don't retry — next beat handles it
 		},
 	}
 	ctx = workflow.WithActivityOptions(ctx, activityOptions)
 
 	beatCount := 0
 	for {
-		// Sleep until next beat
 		_ = workflow.Sleep(ctx, input.Interval)
 		beatCount++
 
-		// Execute heartbeat activity which will:
-		// 1. Check for available work (ready beads, paused agents waiting for providers)
-		// 2. If work exists: trigger dispatch
-		// 3. If no work: run idle mode tasks (CFO budgets, PR monitoring, etc.)
 		err := workflow.ExecuteActivity(ctx, "LoomHeartbeatActivity", beatCount).Get(ctx, nil)
 		if err != nil {
-			logger.Warn("Heartbeat activity failed", "beat", beatCount, "error", err)
-		} else {
-			logger.Debug("Loom heartbeat pulse", "beat", beatCount)
+			logger.Warn("Ralph beat failed", "beat", beatCount, "error", err)
+		}
+
+		// Prevent Temporal history bloat — continue as new every 500 beats (~83 min at 10s)
+		if beatCount%500 == 0 {
+			logger.Info("Ralph Loop continuing as new workflow", "beats_completed", beatCount)
+			return workflow.NewContinueAsNewError(ctx, LoomHeartbeatWorkflow, input)
 		}
 	}
 }

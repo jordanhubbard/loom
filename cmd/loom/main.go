@@ -106,10 +106,7 @@ func main() {
 
 	go arb.StartMaintenanceLoop(runCtx)
 
-	// FIX #3: Always start fallback dispatch loop
-	// Even if Temporal is configured, the server might not be running.
-	// The fallback ensures work continues to flow even if Temporal fails.
-	// If Temporal is healthy, its workflows will handle dispatch; if not, this fallback kicks in.
+	// Fallback Ralph Loop: drain all dispatchable work when Temporal is unavailable.
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
@@ -119,13 +116,15 @@ func main() {
 			case <-runCtx.Done():
 				return
 			case <-ticker.C:
-				// Use fallback dispatch if Temporal is not configured
-				// If Temporal is configured, it handles dispatch via workflows
 				if arb.GetTemporalManager() == nil {
-					if _, err := arb.GetDispatcher().DispatchOnce(runCtx, ""); err != nil {
-						// Only log non-nil errors (nil means no work available)
+					for i := 0; i < 50; i++ {
+						dr, err := arb.GetDispatcher().DispatchOnce(runCtx, "")
 						if err != nil {
-							log.Printf("[Main] Fallback dispatch error: %v", err)
+							log.Printf("[Ralph-fallback] Dispatch error: %v", err)
+							break
+						}
+						if dr == nil || !dr.Dispatched {
+							break
 						}
 					}
 				}

@@ -697,16 +697,14 @@ func (a *Loom) Initialize(ctx context.Context) error {
 	if a.temporalManager != nil {
 		a.temporalManager.RegisterActivity(temporalactivities.NewDispatchActivities(a.dispatcher))
 		a.temporalManager.RegisterActivity(temporalactivities.NewProviderActivities(a.providerRegistry, a.database, a.eventBus, a.modelCatalog))
-		a.temporalManager.RegisterActivity(temporalactivities.NewLoomActivities(a.database))
+		a.temporalManager.RegisterActivity(temporalactivities.NewLoomActivities(a.database, a.dispatcher, a.beadsManager, a.agentManager))
 
 		if err := a.temporalManager.Start(); err != nil {
 			return fmt.Errorf("failed to start temporal: %w", err)
 		}
 
-		// Start the master heartbeat (10 second interval) - timing/coordination
+		// Start the Ralph Loop (10 second interval) — drains all dispatchable work per beat
 		_ = a.temporalManager.StartLoomHeartbeatWorkflow(ctx, 10*time.Second)
-		// Start the dispatcher (triggers work distribution)
-		_ = a.temporalManager.StartDispatcherWorkflow(ctx, "", 5*time.Second)
 		// Start provider heartbeats (monitor provider health)
 		_ = a.startProviderHeartbeats(ctx)
 	}
@@ -2812,22 +2810,9 @@ func (a *Loom) StartMaintenanceLoop(ctx context.Context) {
 				log.Printf("[Maintenance] Reset %d stuck agents", resetCount)
 			}
 
-			// Auto-escalate loop-detected beads to CEO (best-effort).
-			beads, _ := a.beadsManager.ListBeads(nil)
-			for _, b := range beads {
-				if b == nil || b.Context == nil {
-					continue
-				}
-				if b.Context["loop_detected"] != "true" {
-					continue
-				}
-				if b.Context["escalated_to_ceo_decision_id"] != "" {
-					continue
-				}
-				reason := b.Context["loop_detected_reason"]
-				returnedTo := b.Context["agent_id"]
-				_, _ = a.EscalateBeadToCEO(b.ID, reason, returnedTo)
-			}
+			// NOTE: Stuck bead resolution is handled by the Ralph Loop
+			// (LoomHeartbeatActivity). CEO escalation is only available via
+			// explicit CLI/REPL commands.
 
 			// Periodic federation sync
 			if a.config.Beads.Federation.Enabled && a.config.Beads.Federation.SyncInterval > 0 {
