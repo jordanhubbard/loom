@@ -1,0 +1,37 @@
+#!/bin/bash
+# Local provider bootstrap — copy to bootstrap.local and fill in your values.
+# bootstrap.local is gitignored and will not be committed.
+#
+# Run once after starting Loom:
+#   ./bootstrap.local
+#
+# Or automatically via: make bootstrap
+
+LOOM_URL="${LOOM_URL:-http://localhost:8081}"
+
+register_provider() {
+  local id="$1" name="$2" type="$3" endpoint="$4" model="$5" api_key="${6:-}"
+
+  local body
+  if [ -n "$api_key" ]; then
+    body=$(printf '{"id":"%s","name":"%s","type":"%s","endpoint":"%s","model":"%s","api_key":"%s"}' \
+      "$id" "$name" "$type" "$endpoint" "$model" "$api_key")
+  else
+    body=$(printf '{"id":"%s","name":"%s","type":"%s","endpoint":"%s","model":"%s"}' \
+      "$id" "$name" "$type" "$endpoint" "$model")
+  fi
+
+  echo "Registering provider: $name ($id)"
+  curl -s -X POST "$LOOM_URL/api/v1/providers" \
+    -H "Content-Type: application/json" \
+    -d "$body" | head -c 200
+  echo
+}
+
+# === Add your providers below ===
+
+# Local vLLM example (no API key needed):
+# register_provider "local-vllm" "Local vLLM" "local" "http://localhost:8000/v1" "my-model"
+
+# Cloud provider example (with API key):
+# register_provider "nvidia-cloud" "NVIDIA Cloud" "openai" "https://inference-api.nvidia.com/v1" "nvidia/openai/gpt-oss-20b" "$NVIDIA_API_KEY"

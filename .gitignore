@@ -51,3 +51,6 @@ data/
 logs/
 loom.log
 .loom.pid
+
+# Local bootstrap (contains API keys and local endpoints)
+bootstrap.local

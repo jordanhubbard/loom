@@ -75,26 +75,15 @@ cache:
   max_memory_mb: 500          # Maximum memory usage (approximate)
   cleanup_period: 5m          # How often to clean expired entries
 
-providers:
-  - id: plubbit-local
-    name: Plubbit Local
-    type: local
-    endpoint: http://plubbit.local:8000/v1
-    model: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8
-    enabled: true
-  - id: sparky-local
-    name: Sparky Local
-    type: local
-    endpoint: http://sparky.local:8000/v1
-    model: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8
-    enabled: true
-  - id: nvidia-cloud
-    name: NVIDIA Inference API
-    type: openai
-    endpoint: https://inference-api.nvidia.com/v1
-    api_key: ${NVIDIA_API_KEY}
-    model: nvidia/openai/gpt-oss-20b
-    enabled: true
+providers: []
+  # Providers are registered via API, not in this file.
+  # Create a bootstrap.local file (gitignored) with curl commands:
+  #   curl -X POST http://localhost:8081/api/v1/providers \
+  #     -H "Content-Type: application/json" \
+  #     -d '{"id":"my-provider","name":"My Provider","type":"openai",
+  #          "endpoint":"http://localhost:8000/v1","model":"my-model",
+  #          "api_key":"sk-..."}'
+  # See bootstrap.local.example for a template.
 
 projects:
   - id: loom-self
