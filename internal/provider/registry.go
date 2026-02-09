@@ -36,6 +36,7 @@ type Registry struct {
 	mu              sync.RWMutex
 	providers       map[string]*RegisteredProvider
 	metricsCallback MetricsCallback
+	rrCounter       uint64 // Round-robin counter for equal-priority providers
 }
 
 // RegisteredProvider wraps a provider with its configuration and protocol
@@ -158,39 +159,58 @@ func (r *Registry) List() []*RegisteredProvider {
 }
 
 // ListActive returns registered providers with active status, sorted by
-// capability score (highest first). Providers with no explicit score are
-// ranked by inverse heartbeat latency as a fallback.
+// capability score (highest first). Providers with equal scores are
+// round-robined so all get work.
 func (r *Registry) ListActive() []*RegisteredProvider {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
+	counter := r.rrCounter
+	r.mu.RUnlock()
 
+	r.mu.RLock()
 	providers := make([]*RegisteredProvider, 0, len(r.providers))
 	for _, provider := range r.providers {
 		if provider != nil && provider.Config != nil && isProviderHealthy(provider.Config.Status) {
 			providers = append(providers, provider)
 		}
 	}
+	r.mu.RUnlock()
 
-	// Sort by capability score descending, then by latency ascending as tiebreak
+	if len(providers) <= 1 {
+		return providers
+	}
+
+	// Sort by capability score descending
 	sort.SliceStable(providers, func(i, j int) bool {
 		si := providers[i].Config.CapabilityScore
 		sj := providers[j].Config.CapabilityScore
-
-		// If neither has an explicit score, use inverse latency
-		if si == 0 && sj == 0 {
-			li := providers[i].Config.LastHeartbeatLatencyMs
-			lj := providers[j].Config.LastHeartbeatLatencyMs
-			if li == 0 {
-				li = 999999
-			}
-			if lj == 0 {
-				lj = 999999
-			}
-			return li < lj // Lower latency = better
-		}
-
-		return si > sj // Higher score = better
+		return si > sj
 	})
+
+	// Find the group of providers with equal top score and rotate them
+	topScore := providers[0].Config.CapabilityScore
+	equalCount := 0
+	for _, p := range providers {
+		if p.Config.CapabilityScore == topScore {
+			equalCount++
+		} else {
+			break
+		}
+	}
+
+	if equalCount > 1 {
+		// Round-robin within the equal-score group
+		rotation := int(counter) % equalCount
+		rotated := make([]*RegisteredProvider, 0, len(providers))
+		rotated = append(rotated, providers[rotation:equalCount]...)
+		rotated = append(rotated, providers[:rotation]...)
+		rotated = append(rotated, providers[equalCount:]...)
+		providers = rotated
+	}
+
+	// Increment counter for next call
+	r.mu.Lock()
+	r.rrCounter++
+	r.mu.Unlock()
 
 	return providers
 }
