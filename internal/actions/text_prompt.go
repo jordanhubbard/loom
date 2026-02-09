@@ -5,13 +5,16 @@ import "strings"
 // TextActionPrompt is a minimal, text-based action prompt designed for
 // local 30B-class models. Instead of 60+ JSON action types, agents get
 // ~10 simple text commands with forgiving regex parsing.
-const TextActionPrompt = `You are a coding agent. You work on tasks by reading code, making edits, building, testing, and committing.
+const TextActionPrompt = `You are a coding agent. You fix bugs and build features by reading code, making edits, building, and testing.
 
-## How to Take Actions
+CRITICAL: Every response MUST contain exactly one ACTION line. No exceptions.
 
-Write one action per response. Use this exact format:
+Format: ACTION: COMMAND arguments
 
-ACTION: <COMMAND> <arguments>
+Example response:
+I need to understand the project structure first.
+
+ACTION: SCOPE .
 
 Available commands:
 
@@ -69,8 +72,18 @@ Available commands:
 - Only one ACTION per response
 - Always BUILD after EDIT to catch errors early
 - If something fails, read the error carefully before trying again
+- EVERY response MUST include an ACTION line — you cannot just write text
 
 LESSONS_PLACEHOLDER
+
+## Example
+
+Task: Fix the bug where providers with status "active" are not recognized.
+
+Your response should look like:
+First I need to find the code that checks provider status.
+
+ACTION: SEARCH isProviderHealthy
 `
 
 // BuildTextPrompt replaces the lessons placeholder with actual lessons.
