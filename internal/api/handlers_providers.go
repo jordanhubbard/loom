@@ -48,18 +48,20 @@ func (s *Server) handleProviders(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Store API key if provided
-		if req.APIKey != "" {
+		apiKey := req.APIKey
+		if apiKey != "" {
 			keyID := fmt.Sprintf("%s-api-key", req.ID)
 			if s.keyManager != nil && s.keyManager.IsUnlocked() {
-				if err := s.keyManager.StoreKey(keyID, req.Name, fmt.Sprintf("API key for %s", req.Name), req.APIKey); err != nil {
+				if err := s.keyManager.StoreKey(keyID, req.Name, fmt.Sprintf("API key for %s", req.Name), apiKey); err != nil {
 					s.respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to store API key: %v", err))
 					return
 				}
 				provider.KeyID = keyID
 			}
+			provider.RequiresKey = true
 		}
 
-		created, err := s.app.RegisterProvider(context.Background(), provider)
+		created, err := s.app.RegisterProvider(context.Background(), provider, apiKey)
 		if err != nil {
 			s.respondError(w, http.StatusBadRequest, err.Error())
 			return

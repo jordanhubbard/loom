@@ -1765,7 +1765,7 @@ func (a *Loom) ListProviders() ([]*internalmodels.Provider, error) {
 	return a.database.ListProviders()
 }
 
-func (a *Loom) RegisterProvider(ctx context.Context, p *internalmodels.Provider) (*internalmodels.Provider, error) {
+func (a *Loom) RegisterProvider(ctx context.Context, p *internalmodels.Provider, apiKeys ...string) (*internalmodels.Provider, error) {
 	log.Printf("RegisterProvider called for: %s (type: %s, endpoint: %s)", p.ID, p.Type, p.Endpoint)
 	if a.database == nil {
 		return nil, fmt.Errorf("database not configured")
@@ -1803,11 +1803,17 @@ func (a *Loom) RegisterProvider(ctx context.Context, p *internalmodels.Provider)
 		return nil, err
 	}
 
+	// Pass API key to the registry so the Protocol gets authentication
+	regAPIKey := ""
+	if len(apiKeys) > 0 {
+		regAPIKey = apiKeys[0]
+	}
 	_ = a.providerRegistry.Upsert(&provider.ProviderConfig{
 		ID:                     p.ID,
 		Name:                   p.Name,
 		Type:                   p.Type,
 		Endpoint:               p.Endpoint,
+		APIKey:                 regAPIKey,
 		Model:                  p.SelectedModel,
 		ConfiguredModel:        p.ConfiguredModel,
 		SelectedModel:          p.SelectedModel,

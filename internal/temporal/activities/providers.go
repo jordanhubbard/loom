@@ -292,6 +292,16 @@ func (a *ProviderActivities) discoverAndListModels(ctx context.Context, provider
 		return record, nil, "", "", err
 	}
 
+	// Try the registered Protocol first (has auth credentials baked in)
+	if a.registry != nil {
+		if reg, regErr := a.registry.Get(providerID); regErr == nil && reg.Protocol != nil {
+			models, getErr := reg.Protocol.GetModels(ctx)
+			if getErr == nil && len(models) > 0 {
+				return record, models, record.Type, record.Endpoint, nil
+			}
+		}
+	}
+
 	var lastErr error
 	for _, c := range candidates {
 		models, probeErr := probeModels(ctx, c)
@@ -318,6 +328,7 @@ func (a *ProviderActivities) discoverAndListModels(ctx context.Context, provider
 type providerCandidate struct {
 	ProviderType string
 	Endpoint     string
+	APIKey       string // For authenticated endpoints (cloud providers)
 }
 
 func buildProviderCandidates(raw string, preferredOpenAIType string) ([]providerCandidate, error) {
