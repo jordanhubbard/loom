@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -596,6 +597,7 @@ func (w *Worker) ExecuteTaskWithLoop(ctx context.Context, task *Task, config *Lo
 
 	var allActions []actions.Result
 	consecutiveParseFailures := 0
+	consecutiveValidationFailures := 0
 	actionHashes := make(map[string]int) // for inner loop detection
 
 	for iteration := 0; iteration < maxIter; iteration++ {
@@ -655,6 +657,31 @@ func (w *Worker) ExecuteTaskWithLoop(ctx context.Context, task *Task, config *Lo
 		// Parse actions
 		env, parseErr := actions.DecodeLenient([]byte(llmResponse))
 		if parseErr != nil {
+			var validationErr *actions.ValidationError
+			if errors.As(parseErr, &validationErr) {
+				// JSON parsed fine but action fields are incomplete.
+				// Give specific feedback and let the model retry — don't count
+				// this as a hard parse failure.
+				consecutiveValidationFailures++
+				if consecutiveValidationFailures >= 4 {
+					loopResult.TerminalReason = "validation_failures"
+					loopResult.Iterations = iteration + 1
+					loopResult.Actions = allActions
+					loopResult.Success = false
+					loopResult.Error = fmt.Sprintf("repeated validation failures: %v", validationErr)
+					loopResult.CompletedAt = time.Now()
+					return loopResult, nil
+				}
+				feedback := fmt.Sprintf("## Action Validation Error\n\nYour JSON was valid but the action is incomplete: %v\n\nPlease include all required fields. For write_file you need both \"path\" and \"content\". For read_code you need \"path\". Check the action schema and try again.", validationErr)
+				messages = append(messages, provider.ChatMessage{Role: "user", Content: feedback})
+				if conversationCtx != nil {
+					conversationCtx.AddMessage("user", feedback, len(feedback)/4)
+				}
+				log.Printf("[ActionLoop] Validation error on iteration %d: %v", iteration+1, validationErr)
+				continue
+			}
+
+			// Actual JSON parse failure
 			consecutiveParseFailures++
 			if consecutiveParseFailures >= 2 {
 				loopResult.TerminalReason = "parse_failures"
@@ -675,6 +702,7 @@ func (w *Worker) ExecuteTaskWithLoop(ctx context.Context, task *Task, config *Lo
 			continue
 		}
 		consecutiveParseFailures = 0
+		consecutiveValidationFailures = 0
 
 		// Check for empty actions (agent just provided analysis)
 		if len(env.Actions) == 0 {

@@ -406,6 +406,17 @@ func (d *Dispatcher) DispatchOnce(ctx context.Context, projectID string) (*Dispa
 			log.Printf("[Dispatcher] WARNING: Bead %s has been dispatched %d times", b.ID, dispatchCount)
 		}
 
+		// Skip beads that recently failed — cooldown prevents re-dispatching
+		// the same broken bead 50 times in a single ralph beat.
+		if b.Context != nil && b.Context["last_failed_at"] != "" {
+			if lastFailed, err := time.Parse(time.RFC3339, b.Context["last_failed_at"]); err == nil {
+				if time.Since(lastFailed) < 2*time.Minute {
+					skippedReasons["cooldown_after_failure"]++
+					continue
+				}
+			}
+		}
+
 		// Skip beads that have already run UNLESS:
 		// 1. They explicitly request redispatch, OR
 		// 2. They are still in_progress (multi-step work not complete)
@@ -689,7 +700,13 @@ func (d *Dispatcher) DispatchOnce(ctx context.Context, projectID string) (*Dispa
 		if result.LoopTerminalReason == "completed" {
 			ctxUpdates["redispatch_requested"] = "false"
 		}
-		// If max_iterations, keep redispatch_requested=true (agent needs more turns)
+
+		// On failure, set cooldown to prevent re-dispatching the same bead
+		// 50 times in a single ralph beat
+		switch result.LoopTerminalReason {
+		case "parse_failures", "validation_failures", "error":
+			ctxUpdates["last_failed_at"] = time.Now().UTC().Format(time.RFC3339)
+		}
 	}
 
 	historyJSON, loopDetected, loopReason := buildDispatchHistory(candidate, ag.ID)

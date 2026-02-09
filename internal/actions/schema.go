@@ -210,6 +210,15 @@ type BeadPayload struct {
 	Context     map[string]string `json:"context,omitempty"`
 }
 
+// ValidationError wraps action validation failures (JSON parsed OK, but required fields missing).
+// This is distinct from JSON parse errors — the model produced valid JSON but incomplete actions.
+type ValidationError struct {
+	Err error
+}
+
+func (e *ValidationError) Error() string { return e.Err.Error() }
+func (e *ValidationError) Unwrap() error { return e.Err }
+
 func DecodeStrict(payload []byte) (*ActionEnvelope, error) {
 	decoder := json.NewDecoder(bytes.NewReader(payload))
 	decoder.DisallowUnknownFields()
@@ -222,7 +231,7 @@ func DecodeStrict(payload []byte) (*ActionEnvelope, error) {
 		return nil, errors.New("unexpected trailing JSON tokens")
 	}
 	if err := Validate(&env); err != nil {
-		return nil, err
+		return nil, &ValidationError{Err: err}
 	}
 	return &env, nil
 }
