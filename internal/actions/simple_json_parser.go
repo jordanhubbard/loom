@@ -21,25 +21,39 @@ type SimpleJSONAction struct {
 }
 
 // ParseSimpleJSON parses the minimal JSON action format into an ActionEnvelope.
+// Accepts both simple format {"action": "read", "path": "..."} and legacy
+// format {"actions": [{"type": "read_file", "path": "..."}]} as fallback.
 func ParseSimpleJSON(payload []byte) (*ActionEnvelope, error) {
+	// Try simple format first
 	var simple SimpleJSONAction
 	if err := json.Unmarshal(payload, &simple); err != nil {
 		return nil, err
 	}
 
-	if simple.Action == "" {
-		return nil, &ValidationError{Err: fmt.Errorf("missing 'action' field in JSON")}
+	if simple.Action != "" {
+		action, err := simpleToAction(simple)
+		if err != nil {
+			return nil, err
+		}
+		return &ActionEnvelope{
+			Actions: []Action{action},
+			Notes:   simple.Notes,
+		}, nil
 	}
 
-	action, err := simpleToAction(simple)
-	if err != nil {
-		return nil, err
+	// Fallback: try legacy {"actions": [...]} format
+	var legacy ActionEnvelope
+	if err := json.Unmarshal(payload, &legacy); err == nil && len(legacy.Actions) > 0 {
+		// Validate the first action has a type
+		if legacy.Actions[0].Type != "" {
+			if err := Validate(&legacy); err != nil {
+				return nil, &ValidationError{Err: err}
+			}
+			return &legacy, nil
+		}
 	}
 
-	return &ActionEnvelope{
-		Actions: []Action{action},
-		Notes:   simple.Notes,
-	}, nil
+	return nil, &ValidationError{Err: fmt.Errorf("missing 'action' field — respond with {\"action\": \"scope\", \"path\": \".\"} to start")}
 }
 
 func simpleToAction(s SimpleJSONAction) (Action, error) {
