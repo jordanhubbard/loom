@@ -518,41 +518,33 @@ func (a *Loom) Initialize(ctx context.Context) error {
 			// Initialize beads database if it doesn't exist yet
 			beadsDir := filepath.Join(workDir, p.BeadsPath)
 			if _, err := os.Stat(beadsDir); err == nil {
-				needsInit := false
+				bdPath := a.config.Beads.BDPath
+				if bdPath == "" {
+					bdPath = "bd"
+				}
+				// Remove empty dolt/ stub left by git clone (bd init refuses if it exists)
 				if a.config.Beads.Backend == "dolt" {
-					// Check if Dolt database exists
-					if _, err := os.Stat(filepath.Join(beadsDir, "dolt", "beads", ".dolt")); os.IsNotExist(err) {
-						needsInit = true
-					}
-				} else {
-					// Check if SQLite database exists
-					if _, err := os.Stat(filepath.Join(beadsDir, "beads.db")); os.IsNotExist(err) {
-						needsInit = true
+					doltStub := filepath.Join(beadsDir, "dolt")
+					if entries, err := os.ReadDir(doltStub); err == nil && len(entries) == 0 {
+						os.Remove(doltStub)
 					}
 				}
-				if needsInit {
-					bdPath := a.config.Beads.BDPath
-					if bdPath == "" {
-						bdPath = "bd"
+				// Always attempt bd init — it's idempotent for sqlite,
+				// and needed for dolt to create schema after entrypoint starts the server
+				initArgs := []string{"init", "--from-jsonl"}
+				if a.config.Beads.Backend == "dolt" {
+					initArgs = append(initArgs, "--backend", "dolt")
+				}
+				initCmd := exec.Command(bdPath, initArgs...)
+				initCmd.Dir = workDir
+				if out, err := initCmd.CombinedOutput(); err != nil {
+					// Not a hard error — may already be initialized
+					outStr := strings.TrimSpace(string(out))
+					if !strings.Contains(outStr, "already initialized") {
+						fmt.Fprintf(os.Stderr, "Warning: bd init failed for %s: %v (%s)\n", p.ID, err, outStr)
 					}
-					// Remove empty dolt/ stub left by git clone (bd init refuses if it exists)
-					if a.config.Beads.Backend == "dolt" {
-						doltStub := filepath.Join(beadsDir, "dolt")
-						if entries, err := os.ReadDir(doltStub); err == nil && len(entries) == 0 {
-							os.Remove(doltStub)
-						}
-					}
-					initArgs := []string{"init"}
-					if a.config.Beads.Backend == "dolt" {
-						initArgs = append(initArgs, "--backend", "dolt")
-					}
-					initCmd := exec.Command(bdPath, initArgs...)
-					initCmd.Dir = workDir
-					if out, err := initCmd.CombinedOutput(); err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: bd init failed for %s: %v (%s)\n", p.ID, err, strings.TrimSpace(string(out)))
-					} else {
-						fmt.Printf("Initialized beads database for project %s\n", p.ID)
-					}
+				} else {
+					fmt.Printf("Initialized beads database for project %s\n", p.ID)
 				}
 			}
 

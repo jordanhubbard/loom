@@ -216,6 +216,12 @@ func (m *Manager) PullProject(ctx context.Context, project *models.Project) erro
 		return fmt.Errorf("project %s not cloned, call CloneProject first", project.ID)
 	}
 
+	// Stash any local changes (e.g. from bd init) before pulling
+	stashCmd := exec.CommandContext(ctx, "git", "stash", "--include-untracked")
+	stashCmd.Dir = workDir
+	stashOutput, _ := stashCmd.CombinedOutput()
+	didStash := !strings.Contains(string(stashOutput), "No local changes")
+
 	cmd := exec.CommandContext(ctx, "git", "pull", "--rebase")
 	cmd.Dir = workDir
 
@@ -228,6 +234,14 @@ func (m *Manager) PullProject(ctx context.Context, project *models.Project) erro
 	}
 
 	output, err := cmd.CombinedOutput()
+
+	// Restore stashed changes regardless of pull outcome
+	if didStash {
+		popCmd := exec.CommandContext(ctx, "git", "stash", "pop")
+		popCmd.Dir = workDir
+		popCmd.CombinedOutput() // best-effort
+	}
+
 	if err != nil {
 		logGitError("git.pull.error", project, map[string]interface{}{
 			"work_dir":    workDir,
