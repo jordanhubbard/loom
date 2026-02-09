@@ -798,9 +798,11 @@ func (m *WorkerManager) GetPoolStats() worker.PoolStats {
 // or restores paused agents that have providers assigned.
 // Returns the number of agents that were reset.
 func (m *WorkerManager) ResetStuckAgents(maxWorkingDuration time.Duration) int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	// Collect agents to restore outside the lock to avoid deadlock
+	// (RestoreAgentWorker also acquires m.mu).
+	var toRestore []*models.Agent
 
+	m.mu.Lock()
 	count := 0
 	now := time.Now()
 
@@ -830,14 +832,19 @@ func (m *WorkerManager) ResetStuckAgents(maxWorkingDuration time.Duration) int {
 				count++
 			}
 		} else if agent.Status == "paused" && agent.ProviderID != "" {
-			// Try to restore paused agents that have providers
-			log.Printf("[WorkerManager] Attempting to restore paused agent %s", agent.ID)
-			if _, err := m.RestoreAgentWorker(context.Background(), agent); err != nil {
-				log.Printf("[WorkerManager] Failed to restore agent %s: %v", agent.ID, err)
-			} else {
-				log.Printf("[WorkerManager] Successfully restored paused agent %s to idle", agent.ID)
-				count++
-			}
+			toRestore = append(toRestore, agent)
+		}
+	}
+	m.mu.Unlock()
+
+	// Restore paused agents outside the lock
+	for _, agent := range toRestore {
+		log.Printf("[WorkerManager] Attempting to restore paused agent %s", agent.ID)
+		if _, err := m.RestoreAgentWorker(context.Background(), agent); err != nil {
+			log.Printf("[WorkerManager] Failed to restore agent %s: %v", agent.ID, err)
+		} else {
+			log.Printf("[WorkerManager] Successfully restored paused agent %s to idle", agent.ID)
+			count++
 		}
 	}
 

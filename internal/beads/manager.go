@@ -434,11 +434,13 @@ func (m *Manager) GetReadyBeads(projectID string) ([]*models.Bead, error) {
 			continue
 		}
 
-		// Check if all blockers are resolved
+		// Check if all blockers are resolved.
+		// Blockers not in the cache are treated as resolved (they're closed
+		// beads that were excluded from the active-only load).
 		allResolved := true
 		for _, blockerID := range bead.BlockedBy {
 			blocker, ok := m.beads[blockerID]
-			if !ok || blocker.Status != models.BeadStatusClosed {
+			if ok && blocker.Status != models.BeadStatusClosed {
 				allResolved = false
 				break
 			}

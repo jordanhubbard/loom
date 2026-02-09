@@ -37,15 +37,18 @@ func NewLoomActivities(db *database.Database, d *dispatch.Dispatcher, b *beads.M
 // dispatchable work by calling DispatchOnce in a tight loop.
 func (a *LoomActivities) LoomHeartbeatActivity(ctx context.Context, beatCount int) error {
 	start := time.Now()
+	log.Printf("[Ralph] Beat %d: starting (dispatcher=%v agentMgr=%v beadsMgr=%v)", beatCount, a.dispatcher != nil, a.agentMgr != nil, a.beadsMgr != nil)
 
 	// Phase 1: Reset agents stuck in "working" state for too long
 	agentsReset := 0
 	if a.agentMgr != nil {
 		agentsReset = a.agentMgr.ResetStuckAgents(5 * time.Minute)
 	}
+	log.Printf("[Ralph] Beat %d: phase1 done (agentsReset=%d, elapsed=%v)", beatCount, agentsReset, time.Since(start).Round(time.Millisecond))
 
 	// Phase 2: Auto-block beads stuck in dispatch loops
 	stuckResolved := a.resolveStuckBeads()
+	log.Printf("[Ralph] Beat %d: phase2 done (stuckResolved=%d, elapsed=%v)", beatCount, stuckResolved, time.Since(start).Round(time.Millisecond))
 
 	// Phase 3: Drain all dispatchable work
 	dispatched := 0
@@ -64,10 +67,8 @@ func (a *LoomActivities) LoomHeartbeatActivity(ctx context.Context, beatCount in
 	}
 
 	elapsed := time.Since(start)
-	if dispatched > 0 || stuckResolved > 0 || agentsReset > 0 || beatCount%30 == 0 {
-		log.Printf("[Ralph] Beat %d: dispatched=%d stuck_resolved=%d agents_reset=%d elapsed=%v",
-			beatCount, dispatched, stuckResolved, agentsReset, elapsed.Round(time.Millisecond))
-	}
+	log.Printf("[Ralph] Beat %d: dispatched=%d stuck_resolved=%d agents_reset=%d elapsed=%v",
+		beatCount, dispatched, stuckResolved, agentsReset, elapsed.Round(time.Millisecond))
 
 	return nil
 }
