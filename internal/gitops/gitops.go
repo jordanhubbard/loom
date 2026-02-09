@@ -104,42 +104,87 @@ func (m *Manager) CloneProject(ctx context.Context, project *models.Project) err
 		return fmt.Errorf("project %s already cloned at %s", project.ID, workDir)
 	}
 
-	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(workDir), 0755); err != nil {
-		return fmt.Errorf("failed to create work directory parent: %w", err)
+	// Ensure work directory exists (may already contain ssh/ from key generation)
+	if err := os.MkdirAll(workDir, 0755); err != nil {
+		return fmt.Errorf("failed to create work directory: %w", err)
 	}
 
-	// Build clone command
-	args := []string{"clone"}
+	// If the directory already has non-git contents (e.g. ssh/ from key generation),
+	// use git init + fetch + checkout instead of clone
+	dirEntries, _ := os.ReadDir(workDir)
+	needsInitFetch := len(dirEntries) > 0
 
-	// Add branch if specified
-	if project.Branch != "" {
-		args = append(args, "--branch", project.Branch)
+	var cloneErr error
+	if needsInitFetch {
+		// Init, add remote, fetch, checkout — works in non-empty directories
+		branch := project.Branch
+		if branch == "" {
+			branch = "main"
+		}
+
+		steps := []struct {
+			name string
+			args []string
+		}{
+			{"init", []string{"init"}},
+			{"remote add", []string{"remote", "add", "origin", project.GitRepo}},
+			{"fetch", []string{"fetch", "--depth=1", "origin", branch}},
+			{"checkout", []string{"checkout", "-b", branch, "FETCH_HEAD"}},
+		}
+
+		for _, step := range steps {
+			cmd := exec.CommandContext(ctx, "git", step.args...)
+			cmd.Dir = workDir
+			if err := m.configureAuth(cmd, project); err != nil {
+				logGitError("git.clone.error", project, map[string]interface{}{
+					"work_dir":    workDir,
+					"duration_ms": time.Since(start).Milliseconds(),
+					"step":        step.name,
+				}, err)
+				return fmt.Errorf("failed to configure git auth for %s: %w", step.name, err)
+			}
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				logGitError("git.clone.error", project, map[string]interface{}{
+					"work_dir":    workDir,
+					"duration_ms": time.Since(start).Milliseconds(),
+					"step":        step.name,
+					"output":      strings.TrimSpace(string(output)),
+				}, err)
+				cloneErr = fmt.Errorf("git %s failed: %w\nOutput: %s", step.name, err, string(output))
+				break
+			}
+		}
+	} else {
+		// Clean directory — use normal git clone
+		args := []string{"clone"}
+		if project.Branch != "" {
+			args = append(args, "--branch", project.Branch)
+		}
+		args = append(args, "--single-branch", project.GitRepo, workDir)
+
+		cmd := exec.CommandContext(ctx, "git", args...)
+		if err := m.configureAuth(cmd, project); err != nil {
+			logGitError("git.clone.error", project, map[string]interface{}{
+				"work_dir":    workDir,
+				"duration_ms": time.Since(start).Milliseconds(),
+			}, err)
+			return fmt.Errorf("failed to configure git auth: %w", err)
+		}
+
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			logGitError("git.clone.error", project, map[string]interface{}{
+				"work_dir":    workDir,
+				"duration_ms": time.Since(start).Milliseconds(),
+				"output":      strings.TrimSpace(string(output)),
+			}, err)
+			cloneErr = fmt.Errorf("git clone failed: %w\nOutput: %s", err, string(output))
+		}
 	}
 
-	// Single branch to save space
-	args = append(args, "--single-branch", project.GitRepo, workDir)
-
-	// Execute git clone
-	cmd := exec.CommandContext(ctx, "git", args...)
-
-	// Configure auth if needed
-	if err := m.configureAuth(cmd, project); err != nil {
-		logGitError("git.clone.error", project, map[string]interface{}{
-			"work_dir":    workDir,
-			"duration_ms": time.Since(start).Milliseconds(),
-		}, err)
-		return fmt.Errorf("failed to configure git auth: %w", err)
-	}
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		logGitError("git.clone.error", project, map[string]interface{}{
-			"work_dir":    workDir,
-			"duration_ms": time.Since(start).Milliseconds(),
-			"output":      strings.TrimSpace(string(output)),
-		}, err)
-		return fmt.Errorf("git clone failed: %w\nOutput: %s", err, string(output))
+	if cloneErr != nil {
+		return cloneErr
 	}
 	logGitEvent("git.clone.success", project, map[string]interface{}{
 		"work_dir":    workDir,
@@ -561,8 +606,21 @@ func (m *Manager) configureAuth(cmd *exec.Cmd, project *models.Project) error {
 		_ = publicKey
 		sshKeyPath := m.projectPrivateKeyPath(project.ID)
 
+		// Make absolute so it works regardless of cmd.Dir
+		if !filepath.IsAbs(sshKeyPath) {
+			if abs, err := filepath.Abs(sshKeyPath); err == nil {
+				sshKeyPath = abs
+			}
+		}
+
 		// Validate SSH key path is within expected directory (prevent path traversal)
-		if err := validateSSHKeyPath(sshKeyPath, m.projectKeyDir); err != nil {
+		absKeyDir := m.projectKeyDir
+		if !filepath.IsAbs(absKeyDir) {
+			if abs, err := filepath.Abs(absKeyDir); err == nil {
+				absKeyDir = abs
+			}
+		}
+		if err := validateSSHKeyPath(sshKeyPath, absKeyDir); err != nil {
 			return fmt.Errorf("invalid SSH key path for project %s: %w", project.ID, err)
 		}
 

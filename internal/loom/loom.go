@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -503,6 +504,22 @@ func (a *Loom) Initialize(ctx context.Context) error {
 					continue
 				}
 				fmt.Printf("Successfully cloned project %s\n", p.ID)
+
+				// Initialize beads database in the cloned project
+				beadsDir := filepath.Join(workDir, p.BeadsPath)
+				if _, err := os.Stat(beadsDir); err == nil {
+					bdPath := a.config.Beads.BDPath
+					if bdPath == "" {
+						bdPath = "bd"
+					}
+					initCmd := exec.Command(bdPath, "init")
+					initCmd.Dir = workDir
+					if out, err := initCmd.CombinedOutput(); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: bd init failed for %s: %v (%s)\n", p.ID, err, strings.TrimSpace(string(out)))
+					} else {
+						fmt.Printf("Initialized beads database for project %s\n", p.ID)
+					}
+				}
 			} else {
 				// Pull latest changes
 				fmt.Printf("Pulling latest changes for project %s...\n", p.ID)
