@@ -333,27 +333,15 @@ func (w *Worker) handleTokenLimits(messages []provider.ChatMessage) []provider.C
 	return messages
 }
 
-// getModelTokenLimit returns the token limit for the current model
+// getModelTokenLimit returns the token limit for the current model.
+// Uses the provider's discovered context window (from heartbeat) if available,
+// falling back to a conservative default.
 func (w *Worker) getModelTokenLimit() int {
-	// Default limits for common models
-	// TODO: Make this configurable via provider config
-	modelLimits := map[string]int{
-		"gpt-4":             8192,
-		"gpt-4-32k":         32768,
-		"gpt-4-turbo":       128000,
-		"gpt-3.5-turbo":     4096,
-		"gpt-3.5-turbo-16k": 16384,
-		"claude-3-opus":     200000,
-		"claude-3-sonnet":   200000,
-		"claude-3-haiku":    200000,
+	if w.provider.Config.ContextWindow > 0 {
+		return w.provider.Config.ContextWindow
 	}
-
-	if limit, ok := modelLimits[w.provider.Config.Model]; ok {
-		return limit
-	}
-
-	// Default to 100K for unknown models
-	return 100000
+	// Conservative default if heartbeat hasn't discovered the context window yet
+	return 32768
 }
 
 // truncateMessages drops older conversation messages to reduce token count.

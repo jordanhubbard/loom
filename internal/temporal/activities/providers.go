@@ -107,6 +107,14 @@ func (a *ProviderActivities) ProviderHeartbeatActivity(ctx context.Context, inpu
 		record.SelectionReason = reason
 		record.ModelScore = score
 	}
+	// Capture context window from model metadata (vLLM provides max_model_len)
+	for _, m := range models {
+		if m.MaxModelLen > 0 && (m.ID == selected || selected == "") {
+			record.ContextWindow = m.MaxModelLen
+			break
+		}
+	}
+
 	if discoveredType != "" {
 		record.Type = discoveredType
 	}

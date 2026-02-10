@@ -105,10 +105,11 @@ type ChatCompletionResponse struct {
 
 // Model represents an AI model
 type Model struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
-	Created int64  `json:"created"`
-	OwnedBy string `json:"owned_by"`
+	ID          string `json:"id"`
+	Object      string `json:"object"`
+	Created     int64  `json:"created"`
+	OwnedBy     string `json:"owned_by"`
+	MaxModelLen int    `json:"max_model_len,omitempty"` // vLLM: maximum context length in tokens
 }
 
 // OpenAIProvider implements the Protocol interface for OpenAI-compatible APIs
