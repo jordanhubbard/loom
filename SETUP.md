@@ -7,64 +7,48 @@ Everything you need to get Loom running and create your first project.
 - Docker (20.10+)
 - Docker Compose (1.29+)
 - Go 1.25+ (for local development only)
-- Make (optional, for convenience commands)
 
-## Running with Docker (Recommended)
+## Running Loom
 
-The Docker setup includes:
+Loom always runs in Docker. The stack includes:
 - Loom application server (port 8080)
 - Temporal server (port 7233)
 - Temporal UI (port 8088)
 - PostgreSQL database for Temporal
 
 ```bash
-# Build and run all services
-docker compose up -d
+# Start everything
+make start
 
-# Verify everything is healthy
+# Verify
 docker compose ps
 
-# View logs
-docker compose logs -f loom
+# View loom logs
+make logs
 
-# Stop all services
-docker compose down
-```
+# Stop
+make stop
 
-### Using Make Commands
-
-```bash
-# Build and run
-make docker-run
-
-# Build Docker image
-make docker-build
-
-# Stop services
-make docker-stop
-
-# Clean Docker resources
-make docker-clean
+# Rebuild and restart (after code changes)
+make restart
 ```
 
 ## Connecting to the UI
 
-Once the services are running:
-
 - **Loom Web UI**: http://localhost:8080
-- **Temporal UI**: http://localhost:8088 — view workflow executions, inspect history, monitor active workflows, debug failures
+- **Temporal UI**: http://localhost:8088 -- view workflow executions, inspect history, monitor active workflows
 
 ## Configuration
 
-Structural configuration is managed via `config.yaml` (server, temporal, agents, projects). Secrets like API keys are **never** stored in `config.yaml` — see [Registering Providers](#registering-providers) below.
+Structural configuration is managed via `config.yaml` (server, temporal, agents, projects). Secrets like API keys are **never** stored in `config.yaml` -- see [Registering Providers](#registering-providers) below.
 
 ```yaml
 server:
-  http_port: 8081
+  http_port: 8081    # Internal container port (Docker maps 8080 -> 8081)
   enable_http: true
 
 temporal:
-  host: localhost:7233
+  host: temporal:7233  # Temporal service name within Docker network
   namespace: default
   task_queue: loom-tasks
 
@@ -74,204 +58,141 @@ agents:
   heartbeat_interval: 30s
 ```
 
-Environment variables in `config.yaml` are expanded automatically — `${MY_VAR}` is replaced with the value of `MY_VAR` from the environment.
+Environment variables in `config.yaml` are expanded automatically -- `${MY_VAR}` is replaced with the value of `MY_VAR` from the environment.
 
 ## Registering Providers
 
-Providers (LLM backends) are registered via the Loom API, **not** in `config.yaml`. This keeps API keys out of version control and allows per-deployment configuration.
+Providers (LLM backends) are registered via the Loom API, **not** in `config.yaml`. This keeps API keys out of version control.
 
-### Quick Start: Register a Provider
+### Register a Provider
 
 ```bash
-curl -X POST http://localhost:8081/api/v1/providers \
-  -H "Content-Type: application/json" \
-  -d "{\"id\":\"my-provider\",\"name\":\"My Provider\",\"type\":\"openai\",\"endpoint\":\"http://localhost:8000/v1\",\"model\":\"my-model\",\"api_key\":\"$MY_API_KEY\"}"
+# Local vLLM server (no API key)
+curl -X POST http://localhost:8080/api/v1/providers \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "id": "my-gpu",
+    "name": "My GPU",
+    "type": "openai",
+    "endpoint": "http://gpu-host:8000/v1",
+    "model": "Qwen/Qwen2.5-Coder-32B-Instruct"
+  }'
+
+# Cloud provider (with API key)
+curl -X POST http://localhost:8080/api/v1/providers \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "id": "cloud-llm",
+    "name": "Cloud LLM",
+    "type": "openai",
+    "endpoint": "https://api.example.com/v1",
+    "model": "model-name",
+    "api_key": "your-key-here"
+  }'
 ```
 
-API keys are stored in Loom's encrypted vault and persist across restarts.
+API keys are encrypted and stored in Loom's key manager. They persist across restarts.
 
 ### Using bootstrap.local
 
-For repeatable setup, create a `bootstrap.local` script (gitignored) that registers all your providers:
+For repeatable setup, create a `bootstrap.local` script (gitignored):
 
 ```bash
 cp bootstrap.local.example bootstrap.local
 chmod +x bootstrap.local
-# Edit bootstrap.local with your providers and API keys
-./bootstrap.local
+# Edit with your providers and API keys
+LOOM_URL=http://localhost:8080 ./bootstrap.local
 ```
 
-The file uses a `register_provider` helper function:
-
-```bash
-#!/bin/bash
-LOOM_URL="${LOOM_URL:-http://localhost:8081}"
-
-register_provider() {
-  local id="$1" name="$2" type="$3" endpoint="$4" model="$5" api_key="${6:-}"
-  # ... builds JSON and calls POST /api/v1/providers
-}
-
-# Local GPU (no API key)
-register_provider "local-gpu" "Local GPU" "local" \
-  "http://gpu-server:8000/v1" "nvidia/Nemotron-30B"
-
-# Cloud provider (API key from environment)
-register_provider "nvidia-cloud" "NVIDIA Cloud" "openai" \
-  "https://inference-api.nvidia.com/v1" "nvidia/openai/gpt-oss-20b" \
-  "$NVIDIA_API_KEY"
-```
-
-**When to use `bootstrap.local`:**
-- After a fresh install or database wipe
-- When adding a new provider to your deployment
-- To document your provider setup in a reproducible way
-
-**Environment variables:** Set API keys in your shell environment (`~/.zshenv`, `~/.bashrc`, or `.env`) and reference them with `$VAR_NAME` in `bootstrap.local`. They are passed to `curl` via shell expansion — they never touch disk in plaintext.
-
-Providers persist in the database — you only need to run `bootstrap.local` once per fresh deployment.
+Run `bootstrap.local` once after a fresh deployment or database wipe. Providers persist in the database.
 
 ## Bootstrapping Your First Project
 
-Projects are registered via `config.yaml` under `projects:` and persisted in the database.
+Projects can be registered via `config.yaml` or the UI.
 
-Required fields:
-- `id`, `name`, `git_repo`, `branch`, `beads_path`
-
-Optional fields:
-- `is_perpetual` (never closes)
-- `context` (recommended: build/test/lint commands and other agent-relevant context)
-
-Example:
+### Via config.yaml
 
 ```yaml
 projects:
-  - id: loom
-    name: Loom
-    git_repo: https://github.com/jordanhubbard/loom
+  - id: myapp
+    name: My App
+    git_repo: git@github.com:user/myapp.git
     branch: main
     beads_path: .beads
     is_perpetual: true
     context:
-      test: go test ./...
-      vet: go vet ./...
+      build_command: "make build"
+      test_command: "make test"
 ```
 
-Loom "dogfoods" itself by registering this repo as a project and loading beads from the project's `.beads/` directory.
+### Via the UI
 
-## Local Development
+Navigate to **Projects** > **Add Project** and fill in the repository details.
+
+### Deploy Key Setup
+
+Loom generates a unique SSH keypair for each project. After adding a project, retrieve its public key:
+
+```bash
+curl -s http://localhost:8080/api/v1/projects/<project-id>/git-key | jq -r '.public_key'
+```
+
+Add this as a **deploy key with write access** in your git hosting service (GitHub: Settings > Deploy keys). Loom will clone the repository on the next dispatch cycle.
+
+## Development
 
 ### Building Locally
 
 ```bash
-# Install dependencies
-go mod download
-
-# Build the binary
-go build -o loom ./cmd/loom
-
-# Run the application
-./loom
+make build           # Build Go binary
+make test            # Run tests
+make test-docker     # Run tests in Docker with Temporal
+make lint            # Run all linters
+make coverage        # Tests with coverage report
 ```
 
-### Running Tests
+### Full Command Reference
 
 ```bash
-# Run all tests
-go test ./...
-
-# Run tests with coverage
-go test -v -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
-
-# Run specific package tests
-go test ./internal/temporal/...
-```
-
-### Development with Temporal
-
-For local development with Temporal:
-
-1. Start Temporal server:
-```bash
-docker compose up -d temporal temporal-postgresql temporal-ui
-```
-
-2. Build and run loom locally:
-```bash
-go build -o loom ./cmd/loom
-./loom
-```
-
-3. Access Temporal UI:
-```bash
-open http://localhost:8088
+make help            # Show all available commands
 ```
 
 ## Monitoring
 
 ### Event Stream
 
-Monitor real-time events:
 ```bash
-# Watch all events
 curl -N http://localhost:8080/api/v1/events/stream
-
-# Monitor specific project
-curl -N "http://localhost:8080/api/v1/events/stream?project_id=my-project"
 ```
 
 ### Logs
 
-View service logs:
 ```bash
-# All services
-docker compose logs -f
-
-# Specific service
-docker compose logs -f loom
-docker compose logs -f temporal
+make logs                          # Follow loom logs
+docker compose logs -f temporal    # Temporal logs
 ```
 
 ## Troubleshooting
 
 ### Temporal Connection Issues
 
-If loom can't connect to Temporal:
-
-1. Check Temporal is running:
 ```bash
-docker compose ps temporal
+docker compose ps temporal         # Is it running?
+docker compose logs temporal       # Check logs
+docker compose restart temporal    # Restart it
 ```
 
-2. Check Temporal logs:
+### Providers Show "failed"
+
 ```bash
-docker compose logs temporal
+# Check heartbeat error
+curl -s http://localhost:8080/api/v1/providers | jq '.[].last_heartbeat_error'
 ```
 
-3. Verify connectivity:
-```bash
-docker exec loom nc -zv temporal 7233
-```
+Common causes: unreachable endpoint, wrong type (use `"openai"` for vLLM), missing API key.
 
-### Workflow Not Starting
+### Agents Stay Idle
 
-If workflows aren't starting:
-
-1. Check worker is running:
-```bash
-docker compose logs loom | grep "Temporal worker"
-```
-
-2. Verify task queue in Temporal UI
-3. Check workflow registration in logs
-
-### Event Stream Not Working
-
-If event stream endpoint returns errors:
-
-1. Verify Temporal is enabled in config
-2. Check event bus initialization:
-```bash
-docker compose logs loom | grep "event bus"
-```
+- Check providers are `"healthy"`: `curl -s http://localhost:8080/api/v1/providers | jq '.[].status'`
+- Check beads exist: dispatcher needs open beads to assign work
+- Check logs: `make logs`

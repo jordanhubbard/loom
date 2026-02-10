@@ -1,563 +1,203 @@
 # Loom System Manual
 
-Complete user and developer manual for Loom - the Agent Orchestration System.
+Complete reference for Loom -- the Agent Orchestration System.
 
 ## Quick Links
 
-- **User Guide**: [docs/USER_GUIDE.md](docs/USER_GUIDE.md) - Getting started, UI usage
-- **Architecture**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System design and components
-- **Entities Reference**: [docs/ENTITIES_REFERENCE.md](docs/ENTITIES_REFERENCE.md) - All data structures
-- **Temporal DSL**: [docs/TEMPORAL_DSL.md](docs/TEMPORAL_DSL.md) - Workflow language syntax
-- **Worker System**: [docs/WORKER_SYSTEM.md](docs/WORKER_SYSTEM.md) - Agent execution model
-- **Beads Workflow**: [docs/BEADS_WORKFLOW.md](docs/BEADS_WORKFLOW.md) - Work item definitions
-- **Project State Management**: [docs/PROJECT_STATE_MANAGEMENT.md](docs/PROJECT_STATE_MANAGEMENT.md) - State persistence
+- **[QUICKSTART.md](QUICKSTART.md)** -- Get running in 10 minutes
+- **[SETUP.md](SETUP.md)** -- Installation and configuration
+- **[AGENTS.md](AGENTS.md)** -- Developer guide, API reference, troubleshooting
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** -- System design
+- **[docs/ENTITIES_REFERENCE.md](docs/ENTITIES_REFERENCE.md)** -- Data structures
 
 ## What is Loom?
 
-Loom is a comprehensive **agent orchestration system** that:
+Loom is an **agent orchestration system** that:
 
 1. **Coordinates multiple AI agents** with different roles (personas)
-2. **Manages distributed work** through a powerful workflow engine
-3. **Integrates with LLM providers** (local or cloud-based)
+2. **Manages distributed work** through beads (work items) with dependencies
+3. **Integrates with LLM providers** (local vLLM, cloud APIs)
 4. **Uses Temporal** for reliable, durable workflow execution
-5. **Persists all state** to survive restarts
-6. **Provides real-time monitoring** via web UI
+5. **Provides real-time monitoring** via web UI and CEO dashboard
 
 ## Core Concepts
 
 ### Agents
-- Autonomous AI entities with specific roles (CEO, CFO, Engineer, etc.)
-- Created from **personas** (behavior definitions)
-- Have a **status**: idle, working, paused, complete
-- Are **assigned to projects** and process work items
-- **Paused** until a provider becomes available
+- Autonomous AI entities with specific roles (CEO, Engineering Manager, Code Reviewer, etc.)
+- Created from **personas** (behavior definitions in `personas/default/`)
+- Auto-assigned to healthy providers from the shared pool
+- Execute work through a **multi-turn action loop**: LLM call -> parse actions -> execute -> feedback -> repeat
 
 ### Beads
-- Discrete units of work (features, bugs, tests, decisions)
-- Defined as YAML files with metadata
-- Have **status**: open, in_progress, blocked, done
+- Discrete units of work (features, bugs, tasks)
+- Managed via the `bd` CLI with Dolt database backend
+- Have **status**: open, in_progress, blocked, closed
 - Support **dependencies**: can block other beads, be blocked by others
-- Can be **assigned** to specific agents or auto-routed
+- Support **priority**: P0 (critical) through P3 (backlog)
+- Dispatched to agents automatically based on priority and persona matching
 
 ### Providers
-- External LLM services (vLLM, Ollama, OpenAI, etc.)
-- Have **endpoints** (network addresses)
-- Serve **models** (specific LLMs)
-- Transition from **pending** → **active** → **error**
-- **Health checked** every 30 seconds
+- LLM backends (vLLM, OpenAI-compatible APIs)
+- Registered via the API with optional API keys (encrypted storage)
+- Health-checked every 30 seconds via heartbeat workflow
+- Report `context_window` from model metadata for proactive message truncation
+- Status: pending -> healthy -> failed
 
 ### Projects
-- Containers for related work
-- Map to **git repositories** with branches
-- Have **beads** stored in git
-- Have **agents assigned** for work
-- Can be **perpetual** (never finish) or normal
+- Containers for related work, mapped to **git repositories**
+- Loom generates a unique SSH keypair per project for git operations
+- Beads loaded from project's `.beads/issues.jsonl` via Dolt
+- Can be **perpetual** (never close, like self-improvement projects)
+- Agents are assigned per-project
 
 ### Temporal Workflows
-- Reliable, durable **long-running processes**
-- Support **retry**, **pause**, **resume**, **signal**, **query**
-- Survive crashes and restarts
-- Can be **scheduled** for recurring execution
-- Can be embedded in agent instructions via **DSL**
+- Reliable, durable long-running processes
+- Power heartbeats, bead processing, and dispatch coordination
+- Survive container restarts
 
 ## Getting Started
 
-### 1. Start the System
-
 ```bash
-# Start full Docker stack
-docker compose up -d
+# 1. Start Loom
+make start
 
-# Or run locally with external Temporal
-make run
-```
-
-### 2. Register a Provider
-
-**Via UI**:
-1. Navigate to **Providers** section
-2. Click **Register Provider**
-3. Enter endpoint (e.g., `http://localhost:8000`)
-4. Select model (e.g., `nvidia/Nemotron`)
-5. Submit - provider will be checked immediately
-
-**Via Config**:
-```yaml
-providers:
-  - id: local-llm
-    endpoint: http://localhost:8000
-    model: nvidia/Nemotron
-```
-
-**Via API**:
-```bash
+# 2. Register a provider
 curl -X POST http://localhost:8080/api/v1/providers \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": "my-provider",
-    "endpoint": "http://provider.local:8000",
-    "model": "mistral/Mistral"
-  }'
+  -H 'Content-Type: application/json' \
+  -d '{"id":"my-gpu","name":"My GPU","type":"openai","endpoint":"http://gpu-host:8000/v1","model":"Qwen/Qwen2.5-Coder-32B-Instruct"}'
+
+# 3. Wait for heartbeat (30s), then verify
+curl -s http://localhost:8080/api/v1/providers | jq '.[].status'
+
+# 4. Open CEO dashboard
+open http://localhost:8080
 ```
 
-### 3. Register a Project
+See [QUICKSTART.md](QUICKSTART.md) for the full walkthrough including project setup and filing beads.
 
-**Via config.yaml**:
-```yaml
-projects:
-  - id: myapp
-    name: My App
-    git_repo: https://github.com/user/myapp
-    branch: main
-    beads_path: .beads
-    is_sticky: true
-```
+## Agent Action Loop
 
-**Via UI**:
-1. Navigate to **Projects**
-2. Click **Add Project**
-3. Fill in repository details
-4. Submit
+When a bead is dispatched to an agent, the worker executes a multi-turn loop:
 
-### 4. Create Beads (Work Items)
+1. Build messages: system prompt (persona + lessons) + conversation history + task
+2. Proactively truncate if messages exceed provider's context window (80% threshold)
+3. Call LLM via provider's chat completions endpoint
+4. On context-length 400 error: retry with progressively smaller history (50%, 25%, system+user only)
+5. Parse response as JSON actions
+6. Execute actions (read files, search code, write files, run commands, create beads, etc.)
+7. Format action results as feedback message
+8. Append to conversation and repeat from step 2
+9. Terminate on: `done`, `close_bead`, `escalate_ceo`, max iterations (15), parse failures, or inner-loop detection
 
-Create `.beads/beads/` directory in your git repo and add YAML files:
+### Terminal Conditions
 
-```yaml
-id: bd-001-feature-auth
-type: feature
-title: Implement Authentication
-description: Add user authentication system
-project_id: myapp
-status: open
-priority: 4
-```
-
-Push to git, and beads load automatically.
-
-### 5. Assign Agents
-
-**Via UI**:
-1. Go to **Project Viewer**
-2. Click **+ Add Agent**
-3. Select persona and project
-4. Agent appears and waits for provider
-
-**Via API**:
-```bash
-curl -X POST http://localhost:8080/api/v1/agents \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Engineer 1",
-    "project_id": "myapp",
-    "persona_id": "engineer"
-  }'
-```
-
-### 6. Monitor Progress
-
-**Kanban Board**: See beads organized by status  
-**Project Viewer**: See agents and work assignments  
-**System Status**: Overall health overview  
-
-## Using Temporal DSL
-
-Embed workflow requests in agent instructions without needing external providers:
-
-### In Agent Personas
-
-**CFO Persona** (`personas/default/cfo.md`):
-```markdown
-# Chief Financial Officer
-
-Before approving budgets over $50K:
-
-<temporal>
-WORKFLOW: ReviewBudgetHistory
-  INPUT: {"threshold": 50000}
-  TIMEOUT: 2m
-  WAIT: true
-END
-</temporal>
-
-When approving:
-
-<temporal>
-WORKFLOW: LogBudgetApproval
-  INPUT: {"amount": 100000}
-  WAIT: false
-END
-</temporal>
-```
-
-### In Provider Responses
-
-A provider can include DSL in its response:
-
-```
-Analysis complete with following findings:
-- 5 issues detected
-- 3 opportunities for optimization
-
-<temporal>
-WORKFLOW: GenerateFullReport
-  INPUT: {"analysis_id": "a-123"}
-  TIMEOUT: 5m
-  WAIT: false
-END
-</temporal>
-```
-
-### DSL Syntax
-
-**Schedule recurring task**:
-```markdown
-<temporal>
-SCHEDULE: DailyHealthCheck
-  INTERVAL: 24h
-  INPUT: {"comprehensive": true}
-END
-</temporal>
-```
-
-**Query workflow status**:
-```markdown
-<temporal>
-QUERY: wf-123
-  TYPE: get_progress
-END
-</temporal>
-```
-
-**Send signal to workflow**:
-```markdown
-<temporal>
-SIGNAL: approval-wf-xyz
-  NAME: approve
-  DATA: {"amount": 50000}
-END
-</temporal>
-```
-
-See [docs/TEMPORAL_DSL.md](docs/TEMPORAL_DSL.md) for complete syntax.
+| Condition | Meaning |
+|-----------|---------|
+| `completed` | Agent signaled done or closed the bead |
+| `escalated` | Agent escalated to CEO for decision |
+| `max_iterations` | Hit 15-iteration limit |
+| `parse_failures` | 2 consecutive JSON parse errors |
+| `validation_failures` | 4 consecutive action validation errors |
+| `inner_loop` | Same actions repeated 10 times |
+| `error` | LLM call or action execution error |
 
 ## Key Features
 
-### 1. Real-Time UI
-- Live status updates
-- Drag-and-drop task management
-- Agent/provider/bead monitoring
-- Decision approval workflows
+### Multi-Turn Action Loop
+Agents don't just respond once -- they iterate through read-analyze-act cycles, building understanding of the codebase and making incremental progress. Conversation history persists across dispatches.
 
-### 2. Dependency Management
-- Beads block other beads
-- Automatic deadlock detection
-- Ready-bead identification
-- Smart work ordering
+### Context-Length Negotiation
+When prompts exceed the model's context window, the system automatically retries with truncated history. The provider's `max_model_len` is discovered during heartbeat and used for proactive truncation.
 
-### 3. Provider Integration
-- Multiple LLM providers
-- Automatic health checking
-- Model negotiation
-- API key management (encrypted)
+### Beads Federation
+Host and container share the same Dolt database via port 3307. The `bd` CLI on the host connects to the container's Dolt SQL server, enabling unified issue tracking across environments.
 
-### 4. Workflow Orchestration
-- Temporal-powered reliability
-- Automatic retry/resume
-- Signal/Query capabilities
-- Scheduled execution
-- Embedded DSL support
+### Per-Project SSH Keys
+Each project gets its own ed25519 keypair. Private keys are encrypted via AES-256-GCM in the key manager. Public keys are retrievable via API for adding as deploy keys.
 
-### 5. State Persistence
-- SQLite database (survives restarts)
-- Temporal workflow state
-- YAML bead definitions (in git)
-- Full audit trail
+### Provider Auto-Discovery
+Heartbeat probes multiple endpoint patterns (OpenAI `/v1/models`, Ollama `/api/tags`) and auto-configures the provider type. API keys flow through to both heartbeat probes and chat completions.
 
-### 6. Scalability
-- Horizontal scaling via Temporal
-- Multiple agents per project
-- Multiple providers
-- Perpetual projects (never end)
-
-## Common Workflows
-
-### Adding a New Feature
-
-1. Create bead in `.beads/beads/`
-2. Set status to `open`, priority appropriately
-3. Beads auto-load on commit
-4. Dispatcher finds ready beads
-5. Engineer agent processes
-6. Status updates to `done`
-7. Any dependent beads become ready
-
-### Budget Approval Process
-
-1. Engineer creates bead requesting budget
-2. System assigns to CFO agent
-3. CFO reviews (via Temporal workflow)
-4. CFO approves/denies via decision UI
-5. Decision signal sent to workflow
-6. Bead updates based on decision
-7. Next steps triggered
-
-### Monitoring Provider Health
-
-1. Provider registered (auto health check)
-2. Provider becomes `active`
-3. Agents resume work
-4. Periodic heartbeat checks (30s)
-5. On failure, provider → `error`
-6. Agents pause until provider recovers
-
-### Running Perpetual Tasks
-
-1. Create project with `is_perpetual: true`
-2. Define recurring beads or use Temporal DSL
-3. System never stops processing
-4. New beads can be added anytime
-5. Always checking for ready work
-
-## Command Reference
-
-### Docker Compose
+## Make Commands
 
 ```bash
-# Start full stack
-docker compose up -d
-
-# View logs
-docker compose logs -f loom
-
-# Stop
-docker compose down
-
-# Clean reset (wipes all state)
-docker compose down -v
+make start        # Build and start in Docker
+make stop         # Stop all containers
+make restart      # Rebuild and restart
+make logs         # Follow loom container logs
+make build        # Build Go binary (local)
+make test         # Run tests locally
+make test-docker  # Run tests with Temporal
+make lint         # fmt + vet + yaml + docs
+make distclean    # Full reset (docker + build cache)
+make help         # All commands
 ```
 
-### Make Commands
+## API Endpoints
 
-```bash
-# Build Docker images
-make build
-
-# Run locally with external Temporal
-make run
-
-# Run tests
-make test
-
-# Clean build artifacts
-make clean
-
-# Full reset (wipes database)
-make distclean
-
-# Format/lint code
-make fmt
 ```
-
-### API Endpoints
-
-```bash
 # Projects
 GET    /api/v1/projects
 POST   /api/v1/projects
 GET    /api/v1/projects/:id
-PUT    /api/v1/projects/:id
-DELETE /api/v1/projects/:id
+GET    /api/v1/projects/:id/git-key     # Get SSH deploy key
+POST   /api/v1/projects/:id/git-key     # Rotate SSH key
 
 # Providers
 GET    /api/v1/providers
 POST   /api/v1/providers
-GET    /api/v1/providers/:id
-PUT    /api/v1/providers/:id
 DELETE /api/v1/providers/:id
-POST   /api/v1/providers/:id/negotiate  # Model negotiation
 
 # Agents
 GET    /api/v1/agents
-POST   /api/v1/agents
-GET    /api/v1/agents/:id
-PUT    /api/v1/agents/:id
 
 # Beads
 GET    /api/v1/beads
-GET    /api/v1/beads/:id
-PUT    /api/v1/beads/:id
 
-# Decisions
-GET    /api/v1/decisions
-POST   /api/v1/decisions
-PUT    /api/v1/decisions/:id
+# Events
+GET    /api/v1/events/stream             # SSE real-time events
 
-# System
-GET    /api/v1/system/status
-
-# CEO REPL
-POST   /api/v1/repl/query
-```
-
-## Configuration
-
-### config.yaml
-
-```yaml
-# Server
-api:
-  port: 8080
-  host: 0.0.0.0
-
-# Database
-database:
-  path: ./loom.db
-
-# Temporal
-temporal:
-  host: temporal:7233
-  namespace: loom-default
-  task_queue: loom-tasks
-  enabled: true
-
-# Projects
-projects:
-  - id: myapp
-    name: My App
-    git_repo: https://github.com/user/repo
-    branch: main
-    beads_path: .beads
-    is_sticky: true
-    is_perpetual: false
+# Health
+GET    /health
+GET    /health/live
+GET    /health/ready
 ```
 
 ## Troubleshooting
 
-### Providers show "pending"
+### Providers show "failed"
+- Check `last_heartbeat_error` for details
+- Use `type: "openai"` for vLLM servers (not `"local"`)
+- Verify endpoint is reachable from inside the container
 
-1. Check provider endpoint is reachable
-2. Verify `/v1/models` endpoint returns models
-3. Check provider logs for errors
-4. Try re-registering provider
-5. Check Docker network configuration (if containerized)
+### Agents stay idle
+- Need at least one healthy provider
+- Need open beads in the project
+- Check `make logs` for dispatch skip reasons
 
-### Beads not loading
+### Provider returns 401
+- API key must be registered with the provider via the API
+- Keys are encrypted in the key manager and flow through to both heartbeat and completions
 
-1. Verify beads path exists in git repo
-2. Check YAML syntax with `make lint-yaml`
-3. Verify `project_id` matches registered project
-4. Look for loading errors in logs: `docker logs loom`
+### Context-length errors (400)
+- System auto-retries with truncated history
+- Provider's `context_window` is discovered from `max_model_len` in `/models` response
+- Proactive truncation at 80% of context window
 
-### Agents remain paused
-
-1. Check if provider is registered
-2. Verify provider status is `active` (not `pending`)
-3. Check agent assignment via UI
-4. Look for errors: `docker logs loom | grep -i error`
-
-### Temporal connection issues
-
-1. Verify Temporal running: `docker ps | grep temporal`
-2. Check connection: `curl -s http://localhost:7233/`
-3. Review logs: `docker logs temporal`
-4. Restart: `docker compose restart temporal`
-
-### Database corruption
-
-Clean reset:
-```bash
-# Stop and remove all containers
-docker compose down -v
-
-# Or locally:
-make distclean
-
-# Restart
-docker compose up -d
-```
-
-## Performance Tuning
-
-### For Large Projects
-
-1. Increase Temporal worker threads
-2. Use perpetual=false for bounded projects
-3. Break large beads into smaller sub-beads
-4. Assign multiple agents to project
-
-### For Many Providers
-
-1. Reduce heartbeat interval (caution: more load)
-2. Use provider groups (feature: future)
-3. Implement provider pooling (feature: future)
-
-### For High Throughput
-
-1. Enable database indexing on frequently queried fields
-2. Use perpetual projects
-3. Increase dispatcher frequency (default 5s)
-4. Add more Temporal workers
-
-## Development
-
-### Adding Custom Personas
-
-1. Create `personas/default/yourpersona.md`
-2. Define instructions, capabilities, constraints
-3. Optionally include `<temporal>` DSL blocks
-4. Reference in agent assignments
-
-### Adding Custom Workflows
-
-1. Create workflow in `internal/temporal/workflows/`
-2. Register in `internal/temporal/manager.go`
-3. Call from activities or DSL
-4. Test with existing test infrastructure
-
-### Using Temporal DSL Programmatically
-
-```go
-// Parse DSL
-instructions, cleanedText, err := temporalManager.ParseTemporalInstructions(agentOutput)
-
-// Execute DSL
-execution, err := temporalManager.ExecuteTemporalDSL(ctx, agentID, agentOutput)
-
-// Strip DSL before sending to provider
-cleaned, _ := temporalManager.StripTemporalDSL(agentOutput)
-```
-
-## Support & Contributing
-
-- **Issues**: Report bugs via GitHub issues
-- **Documentation**: Update docs/ files for new features
-- **Tests**: Add tests for new functionality
-- **Code Style**: Run `make fmt` before committing
+### Git clone fails (Permission denied)
+- Retrieve the project's deploy key: `GET /api/v1/projects/:id/git-key`
+- Add it as a write-enabled deploy key in your git host
 
 ## Glossary
 
 | Term | Definition |
 |------|-----------|
-| **Agent** | Autonomous AI actor with specific role |
-| **Bead** | Unit of work (task, story, decision) |
-| **Persona** | Behavioral instructions and guidelines |
-| **Provider** | External LLM service |
-| **Project** | Container for related work |
-| **Workflow** | Temporal long-running process |
-| **DSL** | Domain-Specific Language (Temporal DSL) |
-| **Signal** | Message sent to running workflow |
-| **Query** | State request from running workflow |
-| **Heartbeat** | Periodic health check |
-
-## Version Information
-
-- **Loom**: Latest
-- **Temporal**: 1.22.4+
-- **PostgreSQL**: 15+
-- **Go**: 1.24+
-
----
-
-**Last Updated**: 2026-01-20  
-**Documentation Version**: 1.0
+| **Agent** | Autonomous AI actor with a specific persona |
+| **Bead** | Unit of work (task, feature, bug) tracked via `bd` CLI |
+| **Persona** | Behavioral definition for an agent role |
+| **Provider** | LLM backend (vLLM, OpenAI-compatible API) |
+| **Project** | Git repository with associated beads and agents |
+| **Connector** | Pluggable integration (MCP, OpenClaw, Webhook) -- planned |
+| **Dispatch** | Process of assigning beads to idle agents |
+| **Action Loop** | Multi-turn LLM -> parse -> execute -> feedback cycle |
+| **Heartbeat** | Periodic provider health check (30s) |

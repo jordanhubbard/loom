@@ -1,127 +1,90 @@
 # Contributing to Loom
 
-Thank you for your interest in contributing to Loom! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Loom!
 
 ## Getting Started
 
 ### Prerequisites
 
-- Go 1.24 or later
+- Docker and Docker Compose
+- Go 1.25+
 - Git
-- [bd (beads)](https://github.com/steveyegge/beads) - for task tracking integration
+- [bd (beads)](https://github.com/steveyegge/beads) -- for issue tracking
 
 ### Development Setup
-
-1. **Clone the repository**
 
 ```bash
 git clone https://github.com/jordanhubbard/loom.git
 cd loom
+make dev-setup    # Download deps, create config.yaml
+make start        # Build and start in Docker
 ```
 
-2. **Set up development environment**
-
-```bash
-make dev-setup
-```
-
-This will:
-- Download dependencies
-- Create a `config.yaml` from the example
-
-3. **Build the project**
-
-```bash
-make build
-```
-
-4. **Run the application**
-
-```bash
-make run
-```
-
-The web UI will be available at http://localhost:8080
-
-## Project Structure
-
-```
-loom/
-├── api/                    # OpenAPI specifications
-├── cmd/loom/           # Main application entry point
-├── internal/              # Internal packages
-│   ├── agent/            # Agent management
-│   ├── loom/          # Core orchestration logic
-│   ├── api/              # HTTP API handlers
-│   ├── beads/            # Beads integration
-│   ├── decision/         # Decision bead handling
-│   ├── persona/          # Persona loading and editing
-│   ├── project/          # Project management
-│   └── web/              # Web UI handlers
-├── pkg/                   # Public packages
-│   ├── config/           # Configuration
-│   └── models/           # Data models
-├── personas/              # Persona definitions
-│   ├── templates/        # Template personas
-│   └── examples/         # Example personas
-└── web/static/           # Web UI assets
-```
+Loom UI at http://localhost:8080, Temporal UI at http://localhost:8088.
 
 ## Development Workflow
 
 ### Making Changes
 
 1. **Create a branch**
-
 ```bash
 git checkout -b feature/your-feature-name
 ```
 
 2. **File a bead for your work**
-
-See [BEADS_WORKFLOW.md](docs/BEADS_WORKFLOW.md) for detailed instructions.
-
 ```bash
-# Quick example - create a bead file in .beads/beads/
-# bd-XXX-your-feature.yaml
+bd create --title="Your feature" --type=feature --priority=2
 ```
 
-All work should have a corresponding bead to enable proper tracking and coordination.
-
-3. **Make your changes**
-
-Follow the coding standards (see below)
-
-4. **Format your code**
-
+3. **Make your changes**, then format and test:
 ```bash
-make fmt
-make vet
+make lint         # fmt + vet + yaml + docs
+make test         # Run tests locally
+make test-docker  # Run tests with Temporal
 ```
 
-5. **Test your changes**
-
+4. **Rebuild and test in Docker**
 ```bash
-make test
+make restart      # Rebuild container with your changes
 ```
 
-6. **Update your bead**
-
-Mark the bead as complete and move it to `.beads/closed/` when done.
-
-7. **Commit your changes**
-
+5. **Commit and push**
 ```bash
-git add .
+git add <files>
 git commit -m "Brief description of changes"
+git push origin feature/your-feature-name
 ```
 
-Use clear, descriptive commit messages. Reference the bead ID if applicable.
-
-8. **Push and create a pull request**
-
+6. **Close your bead**
 ```bash
-git push origin feature/your-feature-name
+bd close <bead-id>
+bd sync
+```
+
+## Project Structure
+
+```
+loom/
+├── cmd/loom/              # Application entry point
+├── internal/              # Internal packages
+│   ├── actions/           # Agent action types and execution
+│   ├── agent/             # Agent management and worker pool
+│   ├── api/               # HTTP API handlers
+│   ├── beads/             # Beads integration
+│   ├── database/          # SQLite persistence
+│   ├── dispatch/          # Bead dispatcher
+│   ├── gitops/            # Git operations and SSH keys
+│   ├── keymanager/        # Encrypted credential storage
+│   ├── loom/              # Core orchestration
+│   ├── provider/          # LLM provider protocol
+│   ├── temporal/          # Temporal workflows and activities
+│   └── worker/            # Worker execution engine
+├── pkg/                   # Public packages (config, models)
+├── personas/              # Agent persona definitions
+├── web/static/            # Frontend (vanilla JS, no framework)
+├── workflows/             # Workflow definitions
+├── scripts/               # Build and deployment scripts
+└── .beads/                # Issue tracking (beads)
 ```
 
 ## Coding Standards
@@ -129,163 +92,39 @@ git push origin feature/your-feature-name
 ### Go Code
 
 - Follow standard Go conventions
-- Use `go fmt` for formatting (run `make fmt`)
-- Run `go vet` before committing (run `make vet`)
+- Run `make fmt` and `make vet` before committing
 - Write tests for new functionality
 - Keep functions focused and single-purpose
-- Add comments for exported functions and types
-- Use meaningful variable and function names
 
-### Persona Files
+### Frontend
 
-- Use markdown format
-- Keep sections organized and consistent
-- Provide clear examples
-- Document autonomy levels clearly
-- Include decision-making guidelines
+- Vanilla JavaScript (no frameworks)
+- All UI in `web/static/js/app.js`
+- CSS uses custom properties (app CSS vars)
+- Bump `?v=N` in `web/static/index.html` after JS/CSS changes
 
 ### API Changes
 
-- Update OpenAPI specification (`api/openapi.yaml`)
 - Maintain backward compatibility when possible
 - Document breaking changes clearly
-- Add examples for new endpoints
-
-### Web UI
-
-- Keep JavaScript simple and readable
-- Use vanilla JavaScript (no frameworks required)
-- Maintain responsive design
-- Test in multiple browsers
 
 ## Testing
 
-### Running Tests
-
 ```bash
-# Run all tests
-make test
-
-# Run with coverage
-make coverage
+make test          # Local unit tests
+make test-docker   # Integration tests with Temporal
+make coverage      # Coverage report
 ```
-
-### Writing Tests
-
-- Place tests in `*_test.go` files
-- Use table-driven tests where appropriate
-- Test both success and error cases
-- Mock external dependencies
-
-Example:
-
-```go
-func TestPersonaManager_LoadPersona(t *testing.T) {
-    tests := []struct {
-        name    string
-        persona string
-        wantErr bool
-    }{
-        {"valid persona", "code-reviewer", false},
-        {"invalid persona", "nonexistent", true},
-    }
-    
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            // Test implementation
-        })
-    }
-}
-```
-
-## Adding New Features
-
-### Adding a New Persona
-
-1. Create a new directory in `personas/examples/`
-2. Add `PERSONA.md` and `AI_START_HERE.md`
-3. Follow the template structure
-4. Test loading the persona via API
-
-### Adding API Endpoints
-
-1. Update OpenAPI spec: `api/openapi.yaml`
-2. Add handler in `internal/api/`
-3. Update router in `server.go`
-4. Add tests
-5. Update web UI if needed
-
-### Adding Agent Capabilities
-
-1. Update models in `pkg/models/`
-2. Add logic to appropriate manager
-3. Update API handlers
-4. Add tests
-5. Update documentation
-
-## Documentation
-
-- Update README.md for major features
-- Keep OpenAPI spec in sync with code
-- Comment complex logic
-- Add examples for new personas
-- Update this CONTRIBUTING.md if workflow changes
 
 ## Pull Request Process
 
-1. **Ensure your PR**:
-   - Has a clear description
-   - References any related issues
-   - Includes tests for new functionality
-   - Passes all tests (`make test`)
-   - Is formatted correctly (`make fmt`)
-   - Has updated documentation
-
-2. **PR Review**:
-   - Wait for maintainer review
-   - Address feedback promptly
-   - Keep discussions professional and constructive
-
-3. **After Approval**:
-   - Squash commits if requested
-   - Maintainers will merge your PR
-
-## Issue Reporting
-
-### Bug Reports
-
-Include:
-- Clear description of the bug
-- Steps to reproduce
-- Expected vs actual behavior
-- Environment (OS, Go version, etc.)
-- Relevant logs or error messages
-
-### Feature Requests
-
-Include:
-- Clear description of the feature
-- Use case / motivation
-- Proposed implementation (optional)
-- Any breaking changes
-
-## Code of Conduct
-
-- Be respectful and inclusive
-- Focus on constructive feedback
-- Assume good intentions
-- Help others learn and grow
+1. Ensure tests pass (`make test`)
+2. Code is formatted (`make lint`)
+3. Include a clear description referencing the bead ID
+4. Wait for maintainer review
 
 ## Questions?
 
-- Open an issue for questions
-- Check existing issues and PRs
-- Review documentation first
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the same license as the project (see LICENSE file).
-
-## Thank You!
-
-Your contributions help make Loom better for everyone. We appreciate your time and effort!
+- Open an issue on GitHub
+- Check existing issues and documentation
+- Review [AGENTS.md](AGENTS.md) for the full developer guide
