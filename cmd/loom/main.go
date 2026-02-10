@@ -61,6 +61,26 @@ func main() {
 		log.Fatalf("failed to create loom: %v", err)
 	}
 
+	// Initialize key manager before Loom.Initialize() so Temporal activities
+	// can use it for provider API key retrieval during heartbeats.
+	keyStorePath := filepath.Join(".", ".keys.json")
+	km := keymanager.NewKeyManager(keyStorePath)
+
+	password := loadPassword()
+	if password == "" {
+		log.Printf("Warning: No password found. Using default password. Set LOOM_PASSWORD environment variable or create .env file")
+		password = "loom-default-password"
+	}
+
+	if err := km.Unlock(password); err != nil {
+		log.Printf("Password unlock failed: %v. Trying default password...", err)
+		if err := km.Unlock("loom-default-password"); err != nil {
+			log.Fatalf("Failed to unlock key manager with both passwords: %v", err)
+		}
+	}
+
+	arb.SetKeyManager(km)
+
 	runCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	if err := arb.Initialize(runCtx); err != nil {
@@ -81,28 +101,6 @@ func main() {
 			defer hrManager.Close()
 		}
 	}
-
-	// Initialize key manager for encrypted API keys
-	keyStorePath := filepath.Join(".", ".keys.json")
-	km := keymanager.NewKeyManager(keyStorePath)
-
-	// Load password from environment or .env file
-	password := loadPassword()
-	if password == "" {
-		log.Printf("Warning: No password found. Using default password. Set LOOM_PASSWORD environment variable or create .env file")
-		password = "loom-default-password"
-	}
-
-	if err := km.Unlock(password); err != nil {
-		// Try default password if the provided one failed
-		log.Printf("Password unlock failed: %v. Trying default password...", err)
-		if err := km.Unlock("loom-default-password"); err != nil {
-			log.Fatalf("Failed to unlock key manager with both passwords: %v", err)
-		}
-	}
-
-	// Wire key manager into Loom for SSH key DB persistence
-	arb.SetKeyManager(km)
 
 	go arb.StartMaintenanceLoop(runCtx)
 
