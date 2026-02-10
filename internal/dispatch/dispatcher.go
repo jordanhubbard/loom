@@ -627,7 +627,14 @@ func (d *Dispatcher) DispatchOnce(ctx context.Context, projectID string) (*Dispa
 
 	d.setStatus(StatusActive, fmt.Sprintf("dispatching %s", candidate.ID))
 
-	result, execErr := d.agents.ExecuteTask(ctx, ag.ID, task)
+	// Return immediately — execute the task asynchronously so the dispatch
+	// loop can assign other agents in the same tick. The agent's status is
+	// set to "working" by ExecuteTask before the LLM call starts, so the
+	// next DispatchOnce won't re-assign it.
+	dispatchResult := &DispatchResult{Dispatched: true, ProjectID: selectedProjectID, BeadID: candidate.ID, AgentID: ag.ID, ProviderID: ag.ProviderID}
+
+	go func() {
+		result, execErr := d.agents.ExecuteTask(ctx, ag.ID, task)
 	if execErr != nil {
 		d.setStatus(StatusParked, "execution failed")
 		observability.Error("dispatch.execute", map[string]interface{}{
@@ -684,7 +691,7 @@ func (d *Dispatcher) DispatchOnce(ctx context.Context, projectID string) (*Dispa
 			}
 		}
 
-		return &DispatchResult{Dispatched: true, ProjectID: selectedProjectID, BeadID: candidate.ID, AgentID: ag.ID, ProviderID: ag.ProviderID, Error: execErr.Error()}, nil
+		return
 	}
 
 	ctxUpdates := map[string]string{
@@ -826,7 +833,9 @@ func (d *Dispatcher) DispatchOnce(ctx context.Context, projectID string) (*Dispa
 		"provider_id": ag.ProviderID,
 		"status":      "success",
 	})
-	return &DispatchResult{Dispatched: true, ProjectID: selectedProjectID, BeadID: candidate.ID, AgentID: ag.ID, ProviderID: ag.ProviderID}, nil
+	}() // end async goroutine
+
+	return dispatchResult, nil
 }
 
 func buildDispatchHistory(bead *models.Bead, agentID string) (historyJSON string, loopDetected bool, loopReason string) {
