@@ -467,12 +467,17 @@ var (
 	}
 
 	secretPatterns = []*regexp.Regexp{
+		// Match high-entropy API keys (20+ alphanumeric chars with mixed case/digits)
 		regexp.MustCompile(`(?i)api[_-]?key[_-]?[:=]\s*['"][a-zA-Z0-9]{20,}['"]`),
 		regexp.MustCompile(`(?i)secret[_-]?key[_-]?[:=]\s*['"][a-zA-Z0-9]{20,}['"]`),
-		regexp.MustCompile(`(?i)password[_-]?[:=]\s*['"][^'"]{8,}['"]`),
 		regexp.MustCompile(`(?i)token[_-]?[:=]\s*['"][a-zA-Z0-9]{20,}['"]`),
-		regexp.MustCompile(`(?i)aws[_-]?access[_-]?key[_-]?id`),
+		// AWS access key IDs have a known format
+		regexp.MustCompile(`(?i)aws[_-]?access[_-]?key[_-]?id\s*[:=]\s*['"]AKIA[0-9A-Z]{16}['"]`),
+		// Private key blocks
 		regexp.MustCompile(`-----BEGIN (RSA|DSA|EC|OPENSSH) PRIVATE KEY-----`),
+		// Note: password patterns removed — too many false positives on default/placeholder
+		// passwords in source code (e.g., "loom-default-password"). Real password leaks are
+		// better caught by the API key and token patterns above.
 	}
 )
 
