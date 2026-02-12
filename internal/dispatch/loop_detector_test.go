@@ -138,13 +138,13 @@ func TestIsStuckInLoop_InsufficientHistory(t *testing.T) {
 	}
 
 	// Record only 2 actions (less than threshold * 2)
-	ld.RecordAction(bead, ActionRecord{
+	_ = ld.RecordAction(bead, ActionRecord{
 		Timestamp:  time.Now(),
 		AgentID:    "agent-1",
 		ActionType: "read_file",
 		ActionData: map[string]interface{}{"file_path": "test.go"},
 	})
-	ld.RecordAction(bead, ActionRecord{
+	_ = ld.RecordAction(bead, ActionRecord{
 		Timestamp:  time.Now(),
 		AgentID:    "agent-1",
 		ActionType: "read_file",
@@ -174,7 +174,7 @@ func TestIsStuckInLoop_RepeatedActionWithoutProgress(t *testing.T) {
 				"file_path": "test.go",
 			},
 		}
-		ld.RecordAction(bead, action)
+		_ = ld.RecordAction(bead, action)
 	}
 
 	// Manually override progress metrics to simulate old progress (no recent activity)

@@ -388,7 +388,7 @@ func (dm *DecisionManager) monitorTimeouts() {
 		dm.mu.RUnlock()
 
 		for _, id := range decisionIDs {
-			dm.CheckTimeout(context.Background(), id)
+			_ = dm.CheckTimeout(context.Background(), id)
 		}
 	}
 }

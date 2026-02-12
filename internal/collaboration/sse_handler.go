@@ -111,7 +111,7 @@ func (h *SSEHandler) HandleGetContext(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(data)
+	_, _ = w.Write(data)
 }
 
 // HandleJoinBead handles agent joining a bead context
@@ -142,9 +142,9 @@ func (h *SSEHandler) HandleJoinBead(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "joined",
-		"bead_id": req.BeadID,
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   "joined",
+		"bead_id":  req.BeadID,
 		"agent_id": req.AgentID,
 	})
 }
@@ -177,9 +177,9 @@ func (h *SSEHandler) HandleLeaveBead(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "left",
-		"bead_id": req.BeadID,
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   "left",
+		"bead_id":  req.BeadID,
 		"agent_id": req.AgentID,
 	})
 }
@@ -214,10 +214,10 @@ func (h *SSEHandler) HandleUpdateData(w http.ResponseWriter, r *http.Request) {
 		if conflictErr, ok := err.(*ConflictError); ok {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"error": "version_conflict",
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":            "version_conflict",
 				"expected_version": conflictErr.ExpectedVersion,
-				"actual_version": conflictErr.ActualVersion,
+				"actual_version":   conflictErr.ActualVersion,
 			})
 			return
 		}

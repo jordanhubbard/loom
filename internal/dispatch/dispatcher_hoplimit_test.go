@@ -342,7 +342,7 @@ func TestDispatcher_AlreadyEscalated(t *testing.T) {
 	dispatchCount := 0
 	if bead.Context != nil {
 		if dispatchCountStr := bead.Context["dispatch_count"]; dispatchCountStr != "" {
-			fmt.Sscanf(dispatchCountStr, "%d", &dispatchCount)
+			_, _ = fmt.Sscanf(dispatchCountStr, "%d", &dispatchCount)
 		}
 	}
 

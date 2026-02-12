@@ -240,7 +240,7 @@ func (m *Manager) PullProject(ctx context.Context, project *models.Project) erro
 	if didStash {
 		popCmd := exec.CommandContext(ctx, "git", "stash", "pop")
 		popCmd.Dir = workDir
-		popCmd.CombinedOutput() // best-effort
+		_, _ = popCmd.CombinedOutput() // best-effort
 	}
 
 	if err != nil {

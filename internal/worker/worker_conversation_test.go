@@ -230,11 +230,12 @@ func TestWorker_handleTokenLimits(t *testing.T) {
 		Name: "Test Agent",
 	}
 
-	// Use gpt-3.5-turbo which has a 4096 token limit
+	// Use a model with a 4096 token context window
 	registeredProvider := &provider.RegisteredProvider{
 		Config: &provider.ProviderConfig{
-			ID:    "test-provider",
-			Model: "gpt-3.5-turbo",
+			ID:            "test-provider",
+			Model:         "gpt-3.5-turbo",
+			ContextWindow: 4096,
 		},
 	}
 
