@@ -87,6 +87,7 @@ type Loom struct {
 	patternManager      *patterns.Manager
 	metrics             *metrics.Metrics
 	keyManager          *keymanager.KeyManager
+	doltCoordinator     *beads.DoltCoordinator
 	readinessMu         sync.Mutex
 	readinessCache      map[string]projectReadinessState
 	readinessFailures   map[string]time.Time
@@ -251,6 +252,16 @@ func New(cfg *config.Config) (*Loom, error) {
 		}
 	}
 
+	// Initialize Dolt coordinator for multi-reader/multi-writer bead management
+	var doltCoord *beads.DoltCoordinator
+	if cfg.Beads.Backend == "dolt" {
+		masterProject := "loom-self"
+		if len(cfg.Projects) > 0 {
+			masterProject = cfg.Projects[0].ID
+		}
+		doltCoord = beads.NewDoltCoordinator(masterProject, cfg.Beads.BDPath, 3307)
+	}
+
 	arb := &Loom{
 		config:              cfg,
 		agentManager:        agentMgr,
@@ -276,6 +287,7 @@ func New(cfg *config.Config) (*Loom, error) {
 		workflowEngine:      workflowEngine,
 		patternManager:      patternMgr,
 		metrics:             metrics.NewMetrics(),
+		doltCoordinator:     doltCoord,
 	}
 
 	actionRouter := &actions.Router{
@@ -655,6 +667,13 @@ func (a *Loom) Initialize(ctx context.Context) error {
 			}
 			_ = a.beadsManager.LoadBeadsFromFilesystem(p.ID, beadsPath)
 
+			// Start per-project Dolt instance if using dolt backend
+			if a.doltCoordinator != nil {
+				if _, err := a.doltCoordinator.EnsureInstance(ctx, p.ID, beadsPath); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: Failed to start Dolt instance for %s: %v\n", p.ID, err)
+				}
+			}
+
 			// Federation sync after loading beads
 			if a.config.Beads.Federation.Enabled && a.config.Beads.Federation.AutoSync {
 				fmt.Printf("Syncing federation peers for project %s...\n", p.ID)
@@ -679,6 +698,13 @@ func (a *Loom) Initialize(ctx context.Context) error {
 				a.beadsManager.SetProjectPrefix(p.ID, p.BeadPrefix)
 			}
 			_ = a.beadsManager.LoadBeadsFromFilesystem(p.ID, p.BeadsPath)
+
+			// Start per-project Dolt instance for local projects too
+			if a.doltCoordinator != nil {
+				if _, err := a.doltCoordinator.EnsureInstance(ctx, p.ID, p.BeadsPath); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: Failed to start Dolt instance for %s: %v\n", p.ID, err)
+				}
+			}
 
 			// Federation sync after loading beads
 			if a.config.Beads.Federation.Enabled && a.config.Beads.Federation.AutoSync {
@@ -994,6 +1020,9 @@ func (a *Loom) kickstartOpenBeads(ctx context.Context) {
 // Shutdown gracefully shuts down loom
 func (a *Loom) Shutdown() {
 	a.agentManager.StopAll()
+	if a.doltCoordinator != nil {
+		a.doltCoordinator.Shutdown()
+	}
 	if a.temporalManager != nil {
 		a.temporalManager.Stop()
 	}
@@ -1118,6 +1147,11 @@ func (a *Loom) GetPersonaManager() *persona.Manager {
 // GetBeadsManager returns the beads manager
 func (a *Loom) GetBeadsManager() *beads.Manager {
 	return a.beadsManager
+}
+
+// GetDoltCoordinator returns the Dolt multi-instance coordinator
+func (a *Loom) GetDoltCoordinator() *beads.DoltCoordinator {
+	return a.doltCoordinator
 }
 
 // GetDecisionManager returns the decision manager

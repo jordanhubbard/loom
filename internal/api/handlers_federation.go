@@ -12,11 +12,18 @@ func (s *Server) handleFederationStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	result := map[string]interface{}{
+		"enabled": s.config.Beads.Federation.Enabled,
+	}
+
+	// Include Dolt coordinator status if available
+	if dc := s.app.GetDoltCoordinator(); dc != nil {
+		result["dolt_coordinator"] = dc.Status()
+	}
+
 	if !s.config.Beads.Federation.Enabled {
-		s.respondJSON(w, http.StatusOK, map[string]interface{}{
-			"enabled": false,
-			"message": "Federation is not enabled",
-		})
+		result["message"] = "Federation is not enabled"
+		s.respondJSON(w, http.StatusOK, result)
 		return
 	}
 
@@ -29,18 +36,13 @@ func (s *Server) handleFederationStatus(w http.ResponseWriter, r *http.Request) 
 	// Parse and re-encode to ensure valid JSON response
 	var status interface{}
 	if err := json.Unmarshal(output, &status); err != nil {
-		// Return raw output as a string if not valid JSON
-		s.respondJSON(w, http.StatusOK, map[string]interface{}{
-			"enabled": true,
-			"raw":     string(output),
-		})
+		result["raw"] = string(output)
+		s.respondJSON(w, http.StatusOK, result)
 		return
 	}
 
-	s.respondJSON(w, http.StatusOK, map[string]interface{}{
-		"enabled": true,
-		"status":  status,
-	})
+	result["status"] = status
+	s.respondJSON(w, http.StatusOK, result)
 }
 
 // handleFederationSync handles POST /api/v1/federation/sync
