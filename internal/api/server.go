@@ -34,6 +34,14 @@ type Server struct {
 	metrics         *metrics.Metrics
 	apiFailureMu    sync.Mutex
 	apiFailureLast  map[string]time.Time
+
+	// Circuit breaker for auto-filing API failures as beads.
+	// Prevents cascading failures when the bead subsystem itself is broken.
+	autoFileCBMu          sync.Mutex
+	autoFileConsecFails   int
+	autoFileLastFail      time.Time
+	autoFileCircuitOpen   bool
+	autoFileCircuitOpenAt time.Time
 }
 
 // NewServer creates a new API server
@@ -386,8 +394,23 @@ func (s *Server) recordAPIFailure(r *http.Request, statusCode int) {
 		return
 	}
 
+	// Don't auto-file failures on the auto-file endpoint itself (prevents loops)
+	if strings.HasSuffix(r.URL.Path, "/auto-file") {
+		return
+	}
+
+	// Check circuit breaker before attempting to file
+	if s.isAutoFileCircuitOpen() {
+		return
+	}
+
 	key := fmt.Sprintf("%s %s %d", r.Method, r.URL.Path, statusCode)
 	if s.shouldThrottleFailure(key, 2*time.Minute) {
+		return
+	}
+
+	// Check bead subsystem health before filing
+	if !s.isBeadSubsystemHealthy() {
 		return
 	}
 
@@ -408,7 +431,60 @@ func (s *Server) recordAPIFailure(r *http.Request, statusCode int) {
 		time.Now().UTC().Format(time.RFC3339),
 	)
 
-	_, _ = s.app.CreateBead(title, description, models.BeadPriority(0), "task", projectID)
+	_, err := s.app.CreateBead(title, description, models.BeadPriority(0), "task", projectID)
+	s.recordAutoFileResult(err)
+}
+
+const (
+	autoFileCBMaxFails   = 3               // Trip circuit after 3 consecutive failures
+	autoFileCBResetAfter = 5 * time.Minute // Re-attempt after 5 minutes
+)
+
+func (s *Server) isAutoFileCircuitOpen() bool {
+	s.autoFileCBMu.Lock()
+	defer s.autoFileCBMu.Unlock()
+
+	if !s.autoFileCircuitOpen {
+		return false
+	}
+	// Half-open: allow retry after cooldown
+	if time.Since(s.autoFileCircuitOpenAt) > autoFileCBResetAfter {
+		s.autoFileCircuitOpen = false
+		s.autoFileConsecFails = 0
+		return false
+	}
+	return true
+}
+
+func (s *Server) recordAutoFileResult(err error) {
+	s.autoFileCBMu.Lock()
+	defer s.autoFileCBMu.Unlock()
+
+	if err != nil {
+		s.autoFileConsecFails++
+		s.autoFileLastFail = time.Now()
+		if s.autoFileConsecFails >= autoFileCBMaxFails {
+			s.autoFileCircuitOpen = true
+			s.autoFileCircuitOpenAt = time.Now()
+			fmt.Printf("[WARN] Auto-file circuit breaker tripped after %d consecutive failures\n", s.autoFileConsecFails)
+		}
+	} else {
+		s.autoFileConsecFails = 0
+		s.autoFileCircuitOpen = false
+	}
+}
+
+func (s *Server) isBeadSubsystemHealthy() bool {
+	if s.app == nil {
+		return false
+	}
+	bm := s.app.GetBeadsManager()
+	if bm == nil {
+		return false
+	}
+	// Quick check: can we list beads without error?
+	_, err := bm.ListBeads(nil)
+	return err == nil
 }
 
 func (s *Server) shouldThrottleFailure(key string, window time.Duration) bool {

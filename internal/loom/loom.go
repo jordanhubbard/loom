@@ -606,16 +606,25 @@ func (a *Loom) Initialize(ctx context.Context) error {
 			}
 		}
 
-			// Initialize beads database if needed (sqlite only — dolt schema is
-			// created by the entrypoint script before loom starts)
-			if a.config.Beads.Backend != "dolt" {
+			// Initialize beads database if needed.
+			// For dolt backend, ensure bd is initialized with the correct prefix
+			// so that bead creation doesn't fail with "database not initialized".
+			{
 				beadsDir := filepath.Join(workDir, p.BeadsPath)
 				if _, err := os.Stat(beadsDir); err == nil {
 					bdPath := a.config.Beads.BDPath
 					if bdPath == "" {
 						bdPath = "bd"
 					}
-					initArgs := []string{"init", "--from-jsonl"}
+					// Determine prefix for this project
+					bdPrefix := p.BeadPrefix
+					if bdPrefix == "" {
+						bdPrefix = p.ID
+					}
+					initArgs := []string{"init", "--prefix", bdPrefix}
+					if a.config.Beads.Backend != "dolt" {
+						initArgs = append(initArgs, "--from-jsonl")
+					}
 					initCmd := exec.Command(bdPath, initArgs...)
 					initCmd.Dir = workDir
 					if out, err := initCmd.CombinedOutput(); err != nil {
@@ -1434,7 +1443,7 @@ func (a *Loom) maybeFileReadinessBead(project *models.Project, issues []string, 
 	}
 
 	_ = a.beadsManager.UpdateBead(bead.ID, map[string]interface{}{
-		"tags": []string{"auto-filed", "readiness", "p0"},
+		"tags": []string{"auto-filed", "readiness", "p3"},
 	})
 }
 

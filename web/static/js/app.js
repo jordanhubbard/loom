@@ -4721,6 +4721,10 @@ function stopConversationAutoRefresh() {
 }
 
 async function viewAgentConversation(beadId) {
+    if (!beadId || beadId === 'undefined' || beadId === 'null') {
+        showToast('No bead ID available for this agent', 'error');
+        return;
+    }
     stopConversationAutoRefresh();
 
     const bodyHtml = `<div id="conv-container" class="conv-container"><div class="loading">Loading conversation...</div></div>`;
@@ -4745,9 +4749,13 @@ async function viewAgentConversation(beadId) {
 async function refreshConversation(beadId) {
     const container = document.getElementById('conv-container');
     if (!container) return;
+    if (!beadId || beadId === 'undefined' || beadId === 'null') {
+        container.innerHTML = '<div class="empty-state"><p>No bead ID provided.</p></div>';
+        return;
+    }
 
     try {
-        const session = await apiCall(`/beads/${encodeURIComponent(beadId)}/conversation`);
+        const session = await apiCall(`/beads/${encodeURIComponent(beadId)}/conversation`, { suppressToast: true, skipAutoFile: true });
         if (!session || !session.messages || session.messages.length === 0) {
             container.innerHTML = '<div class="empty-state"><p>No conversation messages yet.</p></div>';
             return;

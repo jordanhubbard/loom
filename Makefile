@@ -39,7 +39,7 @@ bootstrap:
 	@if [ -f bootstrap.local ]; then \
 		echo "Waiting for loom to be healthy..."; \
 		for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
-			status=$$(curl -s --connect-timeout 2 --max-time 5 http://localhost:8080/health 2>/dev/null | grep -o '"status":"[^"]*"' | cut -d'"' -f4); \
+			status=$$(curl -s --connect-timeout 2 --max-time 5 http://localhost:8080/health 2>/dev/null | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4); \
 			if [ "$$status" = "healthy" ]; then \
 				echo "Loom is healthy, running bootstrap.local..."; \
 				chmod +x bootstrap.local && ./bootstrap.local; \

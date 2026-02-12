@@ -42,8 +42,8 @@ async function renderConversationsView() {
             </div>
         `;
 
-        // Auto-select first conversation
-        if (conversations[0]) {
+        // Auto-select first conversation (only if session_id is valid)
+        if (conversations[0] && conversations[0].session_id) {
             loadConversationDetail(conversations[0].session_id);
         }
     } catch (error) {
@@ -52,13 +52,29 @@ async function renderConversationsView() {
 }
 
 function renderConversationListItem(conv) {
-    const agentName = (conv.metadata && conv.metadata.agent_name) || conv.bead_id || conv.session_id;
+    const sessionId = conv.session_id || '';
+    const agentName = (conv.metadata && conv.metadata.agent_name) || conv.bead_id || sessionId || 'Unknown';
     const messageCount = conv.messages ? conv.messages.length : 0;
     const lastMessage = conv.updated_at ? new Date(conv.updated_at).toLocaleString() : 'No messages';
 
+    if (!sessionId) {
+        return `
+        <div class="conversation-item" style="opacity: 0.5;" title="Missing session ID">
+            <div class="conversation-header">
+                <strong>${escapeHtml(agentName)}</strong>
+                <span class="badge">${messageCount} msgs</span>
+            </div>
+            <div class="conversation-meta">
+                <small>${escapeHtml(conv.bead_id || 'No bead')}</small>
+                <small class="text-muted">${lastMessage}</small>
+            </div>
+        </div>
+        `;
+    }
+
     return `
-        <div class="conversation-item" onclick="loadConversationDetail('${conv.session_id}')"
-             data-conversation-id="${conv.session_id}">
+        <div class="conversation-item" onclick="loadConversationDetail('${escapeHtml(sessionId)}')"
+             data-conversation-id="${escapeHtml(sessionId)}">
             <div class="conversation-header">
                 <strong>${escapeHtml(agentName)}</strong>
                 <span class="badge">${messageCount} msgs</span>
@@ -74,6 +90,10 @@ function renderConversationListItem(conv) {
 async function loadConversationDetail(conversationId) {
     const detailContainer = document.getElementById('conversation-detail');
     if (!detailContainer) return;
+    if (!conversationId || conversationId === 'undefined' || conversationId === 'null') {
+        detailContainer.innerHTML = '<div class="empty-state"><p>Invalid conversation ID</p></div>';
+        return;
+    }
 
     // Highlight selected conversation
     document.querySelectorAll('.conversation-item').forEach(item => {
@@ -83,7 +103,7 @@ async function loadConversationDetail(conversationId) {
     try {
         detailContainer.innerHTML = '<div class="loading">Loading messages...</div>';
 
-        const conversation = await apiCall(`/conversations/${conversationId}`);
+        const conversation = await apiCall(`/conversations/${encodeURIComponent(conversationId)}`, { suppressToast: true, skipAutoFile: true });
 
         if (!conversation.messages || conversation.messages.length === 0) {
             detailContainer.innerHTML = renderEmptyState('No messages', 'This conversation has no messages yet');

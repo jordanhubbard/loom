@@ -7,6 +7,9 @@
     // Track errors to avoid duplicate filings
     const filedErrors = new Set();
     const ERROR_DEBOUNCE_MS = 5000; // Don't file same error within 5 seconds
+    const MAX_FILES_PER_MINUTE = 5; // Rate limit: max 5 auto-files per minute
+    let fileCountThisMinute = 0;
+    setInterval(() => { fileCountThisMinute = 0; }, 60000);
     
     // Show toast notification (uses app.js showToast if available, falls back to console)
     function showErrorToast(message, type = 'error') {
@@ -51,7 +54,13 @@
         if (filedErrors.has(errorKey)) {
             return;
         }
+        // Rate limit auto-filing
+        if (fileCountThisMinute >= MAX_FILES_PER_MINUTE) {
+            console.log('[Diagnostic] Rate limit reached, skipping auto-file');
+            return;
+        }
         filedErrors.add(errorKey);
+        fileCountThisMinute++;
         
         // Clear from set after debounce period
         setTimeout(() => filedErrors.delete(errorKey), ERROR_DEBOUNCE_MS);
@@ -139,7 +148,11 @@
             errorMsg.includes('[GlobalError]') ||       // Already handled by onerror
             errorMsg.includes('[UnhandledRejection]') || // Already handled
             errorMsg.includes('[AutoFile]') ||          // Our own logging
-            errorMsg.includes('[Loom] API Error:'); // Avoid double-filing API errors
+            errorMsg.includes('[Loom] API Error:') ||   // Avoid double-filing API errors
+            errorMsg.includes('[Diagnostic]') ||        // Our own init logging
+            errorMsg.includes('not found') ||           // 404s are expected for missing resources
+            errorMsg.includes('session not found') ||   // Conversation lookups that miss are normal
+            errorMsg.includes('Failed to load');        // Transient load failures handled by UI
         
         // File if it contains error indicators and isn't expected
         const looksLikeError = 

@@ -140,8 +140,27 @@ func (m *Manager) CreateBead(title, description string, priority models.BeadPrio
 		}
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Printf("[Beads] bd create failed, falling back to filesystem: %v: %s", err, strings.TrimSpace(string(output)))
-		} else {
+			outStr := strings.TrimSpace(string(output))
+			// Auto-initialize if bd reports uninitialized database
+			if strings.Contains(outStr, "database not initialized") || strings.Contains(outStr, "issue_prefix config is missing") {
+				if initErr := m.tryAutoInitBD(prefix); initErr != nil {
+					log.Printf("[Beads] bd auto-init failed: %v", initErr)
+				} else {
+					// Retry the create after init
+					cmd2 := exec.Command(m.bdPath, args...)
+					if dir := beadsRootDir(m.beadsPath); dir != "" {
+						cmd2.Dir = dir
+					}
+					output, err = cmd2.CombinedOutput()
+					if err != nil {
+						log.Printf("[Beads] bd create failed after auto-init, falling back to filesystem: %v: %s", err, strings.TrimSpace(string(output)))
+					}
+				}
+			} else {
+				log.Printf("[Beads] bd create failed, falling back to filesystem: %v: %s", err, outStr)
+			}
+		}
+		if err == nil {
 			outputStr := string(output)
 			beadID = m.extractBeadIDWithPrefix(outputStr, prefix)
 			if beadID == "" {
@@ -540,6 +559,31 @@ func (m *Manager) extractBeadIDWithPrefix(output, prefix string) string {
 		}
 	}
 	return ""
+}
+
+// tryAutoInitBD attempts to initialize the bd database when it's detected as uninitialized.
+// Must be called with m.mu held.
+func (m *Manager) tryAutoInitBD(prefix string) error {
+	if m.bdPath == "" {
+		return fmt.Errorf("bd path not set")
+	}
+
+	args := []string{"init", "--prefix", prefix}
+	cmd := exec.Command(m.bdPath, args...)
+	if dir := beadsRootDir(m.beadsPath); dir != "" {
+		cmd.Dir = dir
+	}
+	output, err := cmd.CombinedOutput()
+	outStr := strings.TrimSpace(string(output))
+	if err != nil {
+		// "already initialized" is fine
+		if strings.Contains(outStr, "already initialized") {
+			return nil
+		}
+		return fmt.Errorf("bd init --prefix %s failed: %w: %s", prefix, err, outStr)
+	}
+	log.Printf("[Beads] Auto-initialized bd database with prefix %q", prefix)
+	return nil
 }
 
 var beadIDPattern = regexp.MustCompile(`(?i)\b[a-z0-9]{2,8}-[a-z0-9]+\b`)
