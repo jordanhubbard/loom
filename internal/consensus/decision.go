@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -67,6 +68,9 @@ type DecisionResult struct {
 	ResolvedAt      time.Time      `json:"resolved_at"`
 }
 
+// decisionCounter ensures unique decision IDs even when created within the same nanosecond.
+var decisionCounter atomic.Int64
+
 // DecisionManager manages consensus decisions
 type DecisionManager struct {
 	decisions map[string]*ConsensusDecision
@@ -110,7 +114,7 @@ func (dm *DecisionManager) CreateDecision(ctx context.Context, title, descriptio
 	}
 
 	decision := &ConsensusDecision{
-		ID:              fmt.Sprintf("decision-%d", time.Now().UnixNano()),
+		ID:              fmt.Sprintf("decision-%d-%d", time.Now().UnixNano(), decisionCounter.Add(1)),
 		Title:           title,
 		Description:     description,
 		Question:        question,
