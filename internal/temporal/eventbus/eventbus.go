@@ -44,6 +44,12 @@ const (
 	EventTypeDeadlineApproaching EventType = "deadline.approaching"
 	EventTypeDeadlinePassed      EventType = "deadline.passed"
 	EventTypeSystemIdle          EventType = "system.idle"
+
+	// OpenClaw messaging gateway events
+	EventTypeOpenClawMessageSent     EventType = "openclaw.message_sent"
+	EventTypeOpenClawMessageFailed   EventType = "openclaw.message_failed"
+	EventTypeOpenClawMessageReceived EventType = "openclaw.message_received"
+	EventTypeOpenClawReplyProcessed  EventType = "openclaw.reply_processed"
 )
 
 // Event represents a system event

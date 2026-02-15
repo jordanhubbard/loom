@@ -395,15 +395,21 @@ curl http://localhost:8080/api/conversations/<session-id>
 
 ### Notifications
 
-Set up alerts for CEO decisions:
+**Recommended:** Use the [OpenClaw Bridge](./OPENCLAW_BRIDGE.md) for real-time push notifications. When enabled, P0 decisions are automatically sent to the CEO's messaging platform and replies resolve the decision directly.
+
+```yaml
+# config.yaml
+openclaw:
+  enabled: true
+  default_channel: "signal"
+  default_recipient: "+15551234567"
+```
+
+**Alternative:** Manual polling with shell scripts:
 
 ```bash
-# Slack webhook (example)
-bd list --type=decision --priority=0 --status=open --format=json | \
-  jq -r '.[] | "New CEO decision: \(.title) - \(.id)"' | \
-  curl -X POST -H 'Content-type: application/json' \
-       --data '{"text":"'"$(cat)"'"}' \
-       $SLACK_WEBHOOK_URL
+# List open CEO decisions
+bd list --type=decision --priority=0 --status=open
 ```
 
 ### Analytics
@@ -481,7 +487,7 @@ LIMIT 10;
 **Symptom**: CEO decisions accumulating without resolution
 
 **Solutions**:
-- Set up notifications (Slack, email)
+- **Enable the OpenClaw bridge** to push P0 decisions directly to the CEO's preferred messaging platform (WhatsApp, Signal, Slack, Telegram). The CEO can reply inline to approve/deny decisions. See [OpenClaw Bridge](./OPENCLAW_BRIDGE.md).
 - Add CEO dashboard to web UI
 - Schedule regular review sessions
 - Assign on-call CEO rotation
@@ -499,6 +505,7 @@ Planned improvements to escalation system:
 
 ## Related Documentation
 
+- [OpenClaw Bridge](OPENCLAW_BRIDGE.md): Push P0 decisions to CEO via messaging apps
 - [Stuck Detection Heuristics](STUCK_DETECTION.md): How stuck loops are detected
 - [Dispatch Configuration](DISPATCH_CONFIG.md): Dispatch system settings
 - [Beads Workflow](BEADS_WORKFLOW.md): Overall beads system overview

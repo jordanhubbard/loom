@@ -43,6 +43,7 @@ type Config struct {
 	WebUI     WebUIConfig     `yaml:"web_ui" json:"web_ui,omitempty"`
 	Temporal  TemporalConfig  `yaml:"temporal" json:"temporal,omitempty"`
 	HotReload HotReloadConfig `yaml:"hot_reload" json:"hot_reload,omitempty"`
+	OpenClaw  OpenClawConfig  `yaml:"openclaw" json:"openclaw,omitempty"`
 
 	// JSON/User-specific configuration fields
 	Providers   []Provider     `yaml:"providers,omitempty" json:"providers"`
@@ -201,6 +202,23 @@ type HotReloadConfig struct {
 	Patterns  []string `yaml:"patterns"`   // File patterns to watch (e.g. "*.js", "*.css")
 }
 
+// OpenClawConfig configures the OpenClaw messaging gateway integration.
+// OpenClaw acts as a bidirectional bridge between loom and human messaging
+// platforms (WhatsApp, Signal, Slack, Telegram, etc.) for P0 decision escalations.
+type OpenClawConfig struct {
+	Enabled          bool          `yaml:"enabled" json:"enabled"`
+	GatewayURL       string        `yaml:"gateway_url" json:"gateway_url,omitempty"`
+	HookToken        string        `yaml:"hook_token" json:"hook_token,omitempty"`         // Bearer token for outbound POST to /hooks/agent
+	WebhookSecret    string        `yaml:"webhook_secret" json:"webhook_secret,omitempty"` // HMAC secret for inbound webhook verification
+	DefaultChannel   string        `yaml:"default_channel" json:"default_channel,omitempty"`
+	DefaultRecipient string        `yaml:"default_recipient" json:"default_recipient,omitempty"`
+	AgentID          string        `yaml:"agent_id" json:"agent_id,omitempty"`
+	Timeout          time.Duration `yaml:"timeout" json:"timeout,omitempty"`
+	RetryAttempts    int           `yaml:"retry_attempts" json:"retry_attempts,omitempty"`
+	RetryDelay       time.Duration `yaml:"retry_delay" json:"retry_delay,omitempty"`
+	EscalationsOnly  bool          `yaml:"escalations_only" json:"escalations_only"` // Only send P0/CEO-escalated decisions
+}
+
 // LoadConfigFromFile loads configuration from a YAML file at the specified path.
 // This is typically used for loading system-wide or project-specific configuration.
 func LoadConfigFromFile(path string) (*Config, error) {
@@ -311,6 +329,15 @@ func DefaultConfig() *Config {
 			Enabled:         true,
 			StaticPath:      "./web/static",
 			RefreshInterval: 5,
+		},
+		OpenClaw: OpenClawConfig{
+			Enabled:         false,
+			GatewayURL:      "http://127.0.0.1:18789",
+			AgentID:         "loom",
+			Timeout:         30 * time.Second,
+			RetryAttempts:   3,
+			RetryDelay:      2 * time.Second,
+			EscalationsOnly: true,
 		},
 	}
 }

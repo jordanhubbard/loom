@@ -34,6 +34,7 @@ import (
 	"github.com/jordanhubbard/loom/internal/motivation"
 	"github.com/jordanhubbard/loom/internal/notifications"
 	"github.com/jordanhubbard/loom/internal/observability"
+	"github.com/jordanhubbard/loom/internal/openclaw"
 	"github.com/jordanhubbard/loom/internal/orgchart"
 	"github.com/jordanhubbard/loom/internal/patterns"
 	"github.com/jordanhubbard/loom/internal/persona"
@@ -88,6 +89,8 @@ type Loom struct {
 	metrics             *metrics.Metrics
 	keyManager          *keymanager.KeyManager
 	doltCoordinator     *beads.DoltCoordinator
+	openclawClient      *openclaw.Client
+	openclawBridge      *openclaw.Bridge
 	readinessMu         sync.Mutex
 	readinessCache      map[string]projectReadinessState
 	readinessFailures   map[string]time.Time
@@ -263,6 +266,10 @@ func New(cfg *config.Config) (*Loom, error) {
 		doltCoord = beads.NewDoltCoordinator(masterProject, cfg.Beads.BDPath, 3307)
 	}
 
+	// Initialize OpenClaw messaging gateway client and bridge (nil when disabled).
+	ocClient := openclaw.NewClient(&cfg.OpenClaw)
+	ocBridge := openclaw.NewBridge(ocClient, eb, &cfg.OpenClaw)
+
 	arb := &Loom{
 		config:              cfg,
 		agentManager:        agentMgr,
@@ -289,6 +296,8 @@ func New(cfg *config.Config) (*Loom, error) {
 		patternManager:      patternMgr,
 		metrics:             metrics.NewMetrics(),
 		doltCoordinator:     doltCoord,
+		openclawClient:      ocClient,
+		openclawBridge:      ocBridge,
 	}
 
 	actionRouter := &actions.Router{
@@ -1021,6 +1030,9 @@ func (a *Loom) kickstartOpenBeads(ctx context.Context) {
 // Shutdown gracefully shuts down loom
 func (a *Loom) Shutdown() {
 	a.agentManager.StopAll()
+	if a.openclawBridge != nil {
+		a.openclawBridge.Close()
+	}
 	if a.doltCoordinator != nil {
 		a.doltCoordinator.Shutdown()
 	}
@@ -1208,6 +1220,26 @@ func (a *Loom) GetLogManager() *logging.Manager {
 // GetPatternManager returns the pattern manager
 func (a *Loom) GetPatternManager() *patterns.Manager {
 	return a.patternManager
+}
+
+// GetModelCatalog returns the model catalog
+func (a *Loom) GetModelCatalog() *modelcatalog.Catalog {
+	return a.modelCatalog
+}
+
+// GetMetrics returns the metrics collector
+func (a *Loom) GetMetrics() *metrics.Metrics {
+	return a.metrics
+}
+
+// GetOpenClawClient returns the OpenClaw HTTP client (nil when disabled).
+func (a *Loom) GetOpenClawClient() *openclaw.Client {
+	return a.openclawClient
+}
+
+// GetOpenClawBridge returns the OpenClaw EventBus bridge (nil when disabled).
+func (a *Loom) GetOpenClawBridge() *openclaw.Bridge {
+	return a.openclawBridge
 }
 
 // AdvanceWorkflowWithCondition advances a bead's workflow with a specific condition
@@ -2322,6 +2354,9 @@ func isChatCapableModel(modelName string) bool {
 
 // SelectProvider chooses the best provider based on policy and requirements
 func (a *Loom) SelectProvider(ctx context.Context, requirements *routing.ProviderRequirements, policy string) (*internalmodels.Provider, error) {
+	if a.database == nil {
+		return nil, fmt.Errorf("database not configured")
+	}
 	providers, err := a.database.ListProviders()
 	if err != nil {
 		return nil, err

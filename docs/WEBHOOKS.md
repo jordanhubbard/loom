@@ -421,9 +421,14 @@ webhooks:
     backoff_seconds: 60
 ```
 
+## Other Webhook Integrations
+
+- **OpenClaw Messaging Bridge** -- Bidirectional webhook bridge for P0 decision escalations via WhatsApp, Signal, Slack, Telegram, etc. See [OpenClaw Bridge](./OPENCLAW_BRIDGE.md).
+
 ## References
 
 - [GitHub Webhooks Documentation](https://docs.github.com/en/webhooks)
 - [GitHub Webhook Events](https://docs.github.com/en/webhooks/webhook-events-and-payloads)
 - [Securing Webhooks](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries)
 - [Loom Code Review Workflow](./CODE_REVIEW_WORKFLOW.md)
+- [OpenClaw Bridge](./OPENCLAW_BRIDGE.md)

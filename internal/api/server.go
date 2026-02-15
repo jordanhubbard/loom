@@ -331,7 +331,11 @@ func (s *Server) SetupRoutes() http.Handler {
 
 	// Webhooks (external event integration)
 	mux.HandleFunc("/api/v1/webhooks/github", s.handleGitHubWebhook)
+	mux.HandleFunc("/api/v1/webhooks/openclaw", s.handleOpenClawWebhook)
 	mux.HandleFunc("/api/v1/webhooks/status", s.handleWebhookStatus)
+
+	// OpenClaw messaging gateway
+	mux.HandleFunc("/api/v1/openclaw/status", s.handleOpenClawStatus)
 
 	// Apply middleware
 	handler := s.loggingMiddleware(mux)
@@ -559,6 +563,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			r.URL.Path == "/api/v1/chat/completions/stream" ||
 			r.URL.Path == "/api/v1/chat/completions" ||
 			r.URL.Path == "/api/v1/pair" ||
+			r.URL.Path == "/api/v1/webhooks/openclaw" ||
 			strings.HasPrefix(r.URL.Path, "/static/") {
 			next.ServeHTTP(w, r)
 			return
@@ -600,11 +605,15 @@ func (s *Server) getUserFromContext(r *http.Request) *auth.User {
 
 // respondJSON writes a JSON response
 func (s *Server) respondJSON(w http.ResponseWriter, status int, data interface{}) {
+	body, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	w.Write(body)
+	w.Write([]byte("\n"))
 }
 
 // respondError writes an error response
