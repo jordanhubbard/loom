@@ -27,10 +27,8 @@ func (s *Server) handleGetPerformanceReviews(w http.ResponseWriter, r *http.Requ
 	reviews := make([]*models.PerformanceReview, 0)
 
 	// Filter reviews based on query parameters
-	if personaID != "" || reviewer != "" || period != "" {
-		// In a real implementation, this would query the database
-		// For now, return empty list
-	}
+	// TODO: query DB by personaID, reviewer, period when implemented
+	_, _, _ = personaID, reviewer, period
 
 	s.respondJSON(w, http.StatusOK, reviews)
 }

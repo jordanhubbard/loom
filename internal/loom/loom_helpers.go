@@ -3,7 +3,6 @@ package loom
 import (
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -237,11 +236,4 @@ func (a *Loom) UnblockDependents(decisionID string) error {
 	}
 
 	return nil
-}
-
-// debugWrite writes debug output to a file, logging any errors.
-func debugWrite(path string, data []byte) {
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		log.Printf("[DispatchLoop] debug write to %s failed: %v", path, err)
-	}
 }

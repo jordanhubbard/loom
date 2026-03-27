@@ -77,7 +77,7 @@ func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
 	// Extract session ID from path
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/conversations/")
 	parts := strings.Split(path, "/")
-	
+
 	// If no ID is provided, route to the list handler
 	if len(parts) == 0 || parts[0] == "" {
 		s.handleConversationsList(w, r)

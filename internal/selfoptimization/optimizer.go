@@ -3,7 +3,11 @@ package selfoptimization
 import (
 	"fmt"
 	"strings"
+
 	"time"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/jordanhubbard/loom/internal/persona"
 	"github.com/jordanhubbard/loom/pkg/models"
@@ -65,7 +69,7 @@ func (o *Optimizer) CreateOptimizationBead(trigger *OptimizationTrigger) (*model
 	description := o.buildOptimizationDescription(trigger, optimizationType)
 
 	bead := &models.Bead{
-		Title:       fmt.Sprintf("Self-optimize: Rewrite %s.md", strings.Title(optimizationType)),
+		Title:       fmt.Sprintf("Self-optimize: Rewrite %s.md", cases.Title(language.Und).String(optimizationType)),
 		Description: description,
 		Status:      "open",
 		Priority:    models.BeadPriorityP1, // Self-optimization is high priority
@@ -80,7 +84,7 @@ func (o *Optimizer) CreateOptimizationBead(trigger *OptimizationTrigger) (*model
 func (o *Optimizer) buildOptimizationDescription(trigger *OptimizationTrigger, optimizationType string) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("## Performance Review Trigger\n\n"))
+	sb.WriteString("## Performance Review Trigger\n\n")
 	sb.WriteString(fmt.Sprintf("Your recent performance review resulted in a **%s** grade.\n\n", trigger.PerformanceGrade))
 	sb.WriteString(fmt.Sprintf("This is your **%d consecutive** poor performance review.\n\n", trigger.ConsecutiveFailures))
 
@@ -88,8 +92,8 @@ func (o *Optimizer) buildOptimizationDescription(trigger *OptimizationTrigger, o
 		sb.WriteString(fmt.Sprintf("### Feedback\n\n%s\n\n", trigger.ReviewFeedback))
 	}
 
-	sb.WriteString(fmt.Sprintf("## Self-Optimization Task\n\n"))
-	sb.WriteString(fmt.Sprintf("You are being asked to rewrite your **%s.md** file.\n\n", strings.Title(optimizationType)))
+	sb.WriteString("## Self-Optimization Task\n\n")
+	sb.WriteString(fmt.Sprintf("You are being asked to rewrite your **%s.md** file.\n\n", cases.Title(language.Und).String(optimizationType)))
 
 	switch strings.ToLower(optimizationType) {
 	case "motivation":
@@ -151,7 +155,7 @@ func (o *Optimizer) ApplyOptimization(personaName, optimizationType, newContent 
 	}
 
 	// Map optimization type to filename
-	filename := strings.Title(strings.ToLower(optimizationType)) + ".md"
+	filename := cases.Title(language.Und).String(strings.ToLower(optimizationType)) + ".md"
 
 	// Save the new content
 	return o.personaManager.SavePersonaFile(personaName, filename, newContent)

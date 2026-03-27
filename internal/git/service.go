@@ -702,10 +702,10 @@ func (l *AuditLogger) LogOperationWithDuration(operation, beadID, ref string, su
 	// Write to log file
 	data, _ := json.Marshal(entry)
 	f, err := os.OpenFile(l.logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	defer f.Close()
 	if err != nil {
 		return
 	}
+	defer f.Close()
 
 	_, _ = f.Write(data)
 	_, _ = f.Write([]byte("\n"))

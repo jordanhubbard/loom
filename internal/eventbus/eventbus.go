@@ -10,33 +10,33 @@ import (
 type EventType string
 
 const (
-	EventTypeAgentSpawned       EventType = "agent.spawned"
-	EventTypeAgentStatusChange  EventType = "agent.status_change"
-	EventTypeAgentHeartbeat     EventType = "agent.heartbeat"
-	EventTypeAgentCompleted     EventType = "agent.completed"
-	EventTypeAgentIteration     EventType = "agent.iteration"
-	EventTypeBeadCreated        EventType = "bead.created"
-	EventTypeBeadAssigned       EventType = "bead.assigned"
-	EventTypeBeadStatusChange   EventType = "bead.status_change"
-	EventTypeBeadCompleted      EventType = "bead.completed"
-	EventTypeDecisionCreated    EventType = "decision.created"
-	EventTypeDecisionResolved   EventType = "decision.resolved"
-	EventTypeProviderRegistered EventType = "provider.registered"
-	EventTypeProviderDeleted    EventType = "provider.deleted"
-	EventTypeProviderUpdated    EventType = "provider.updated"
-	EventTypeProjectCreated     EventType = "project.created"
-	EventTypeProjectUpdated     EventType = "project.updated"
-	EventTypeProjectDeleted     EventType = "project.deleted"
-	EventTypeConfigUpdated      EventType = "config.updated"
-	EventTypeLogMessage         EventType = "log.message"
-	EventTypeWorkflowStarted    EventType = "workflow.started"
-	EventTypeWorkflowCompleted  EventType = "workflow.completed"
-	EventTypeMotivationFired     EventType = "motivation.fired"
-	EventTypeMotivationEnabled   EventType = "motivation.enabled"
-	EventTypeMotivationDisabled  EventType = "motivation.disabled"
-	EventTypeDeadlineApproaching EventType = "deadline.approaching"
-	EventTypeDeadlinePassed      EventType = "deadline.passed"
-	EventTypeSystemIdle          EventType = "system.idle"
+	EventTypeAgentSpawned            EventType = "agent.spawned"
+	EventTypeAgentStatusChange       EventType = "agent.status_change"
+	EventTypeAgentHeartbeat          EventType = "agent.heartbeat"
+	EventTypeAgentCompleted          EventType = "agent.completed"
+	EventTypeAgentIteration          EventType = "agent.iteration"
+	EventTypeBeadCreated             EventType = "bead.created"
+	EventTypeBeadAssigned            EventType = "bead.assigned"
+	EventTypeBeadStatusChange        EventType = "bead.status_change"
+	EventTypeBeadCompleted           EventType = "bead.completed"
+	EventTypeDecisionCreated         EventType = "decision.created"
+	EventTypeDecisionResolved        EventType = "decision.resolved"
+	EventTypeProviderRegistered      EventType = "provider.registered"
+	EventTypeProviderDeleted         EventType = "provider.deleted"
+	EventTypeProviderUpdated         EventType = "provider.updated"
+	EventTypeProjectCreated          EventType = "project.created"
+	EventTypeProjectUpdated          EventType = "project.updated"
+	EventTypeProjectDeleted          EventType = "project.deleted"
+	EventTypeConfigUpdated           EventType = "config.updated"
+	EventTypeLogMessage              EventType = "log.message"
+	EventTypeWorkflowStarted         EventType = "workflow.started"
+	EventTypeWorkflowCompleted       EventType = "workflow.completed"
+	EventTypeMotivationFired         EventType = "motivation.fired"
+	EventTypeMotivationEnabled       EventType = "motivation.enabled"
+	EventTypeMotivationDisabled      EventType = "motivation.disabled"
+	EventTypeDeadlineApproaching     EventType = "deadline.approaching"
+	EventTypeDeadlinePassed          EventType = "deadline.passed"
+	EventTypeSystemIdle              EventType = "system.idle"
 	EventTypeOpenClawMessageSent     EventType = "openclaw.message_sent"
 	EventTypeOpenClawMessageFailed   EventType = "openclaw.message_failed"
 	EventTypeOpenClawMessageReceived EventType = "openclaw.message_received"
@@ -59,14 +59,14 @@ type Subscriber struct {
 }
 
 type EventBus struct {
-	subscribers map[string]*Subscriber
-	mu          sync.RWMutex
-	ctx         context.Context
-	cancel      context.CancelFunc
-	buffer      chan *Event
-	closed      bool
-	closedMu    sync.Mutex
-	wg          sync.WaitGroup
+	subscribers  map[string]*Subscriber
+	mu           sync.RWMutex
+	ctx          context.Context
+	cancel       context.CancelFunc
+	buffer       chan *Event
+	closed       bool
+	closedMu     sync.Mutex
+	wg           sync.WaitGroup
 	recentEvents []*Event
 	recentIdx    int
 	recentCount  int

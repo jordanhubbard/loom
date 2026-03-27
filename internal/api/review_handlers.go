@@ -27,8 +27,8 @@ func (s *Server) handleGetReviews(w http.ResponseWriter, r *http.Request) {
 
 	reviews := make([]*models.Review, 0)
 
-	if projectID != "" || beadID != "" || status != "" || reviewType != "" {
-	}
+	// TODO: filter reviews by projectID, beadID, status, reviewType when DB implemented
+	_, _, _, _ = projectID, beadID, status, reviewType
 
 	s.respondJSON(w, http.StatusOK, reviews)
 }

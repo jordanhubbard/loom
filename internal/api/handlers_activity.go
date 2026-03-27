@@ -89,13 +89,10 @@ func (s *Server) handleGetActivityFeed(w http.ResponseWriter, r *http.Request) {
 	// If user is not admin, apply activity filtering
 	// For now, admins can see all activities, regular users see all public activities
 	// TODO: Enhance to filter by user's project membership once project-user relationships are implemented
-	if role != "admin" && s.config.Security.EnableAuth {
-		// In future, filter by projects the user has access to:
-		// userProjects := s.app.GetUserProjects(userID)
-		// if len(userProjects) > 0 {
-		//     filters.ProjectIDs = userProjects
-		// }
-	}
+	// TODO: When role != "admin" && s.config.Security.EnableAuth, filter by projects the user has access to:
+	// userProjects := s.app.GetUserProjects(userID)
+	// if len(userProjects) > 0 { filters.ProjectIDs = userProjects }
+	_ = role
 
 	activities, err := activityMgr.GetActivities(filters)
 	if err != nil {

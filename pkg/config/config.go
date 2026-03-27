@@ -123,12 +123,12 @@ type FederationPeer struct {
 
 // AgentsConfig configures agent behavior
 type AgentsConfig struct {
-	MaxConcurrent      int                  `yaml:"max_concurrent"`
-	DefaultPersonaPath string               `yaml:"default_persona_path"`
-	HeartbeatInterval  time.Duration        `yaml:"heartbeat_interval"`
-	FileLockTimeout    time.Duration        `yaml:"file_lock_timeout"`
-	CorpProfile        string               `yaml:"corp_profile" json:"corp_profile,omitempty"`
-	AllowedRoles       []string             `yaml:"allowed_roles" json:"allowed_roles,omitempty"`
+	MaxConcurrent      int                   `yaml:"max_concurrent"`
+	DefaultPersonaPath string                `yaml:"default_persona_path"`
+	HeartbeatInterval  time.Duration         `yaml:"heartbeat_interval"`
+	FileLockTimeout    time.Duration         `yaml:"file_lock_timeout"`
+	CorpProfile        string                `yaml:"corp_profile" json:"corp_profile,omitempty"`
+	AllowedRoles       []string              `yaml:"allowed_roles" json:"allowed_roles,omitempty"`
 	PreCommitChecks    PreCommitChecksConfig `yaml:"pre_commit_checks" json:"pre_commit_checks,omitempty"`
 	ModelCheck         ModelCheckConfig      `yaml:"model_check" json:"model_check,omitempty"`
 }

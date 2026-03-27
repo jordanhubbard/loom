@@ -15,7 +15,6 @@ import (
 	"github.com/jordanhubbard/loom/internal/containers"
 	"github.com/jordanhubbard/loom/internal/database"
 	"github.com/jordanhubbard/loom/internal/decision"
-	"github.com/jordanhubbard/loom/internal/ephemeralstate"
 	"github.com/jordanhubbard/loom/internal/eventbus"
 	"github.com/jordanhubbard/loom/internal/executor"
 	"github.com/jordanhubbard/loom/internal/gitops"
@@ -26,7 +25,6 @@ import (
 	"github.com/jordanhubbard/loom/internal/messagebus"
 	"github.com/jordanhubbard/loom/internal/metrics"
 	"github.com/jordanhubbard/loom/internal/modelcatalog"
-	"github.com/jordanhubbard/loom/internal/modelselection"
 	"github.com/jordanhubbard/loom/internal/motivation"
 	"github.com/jordanhubbard/loom/internal/notifications"
 	"github.com/jordanhubbard/loom/internal/openclaw"
@@ -36,7 +34,6 @@ import (
 	"github.com/jordanhubbard/loom/internal/persona"
 	"github.com/jordanhubbard/loom/internal/project"
 	"github.com/jordanhubbard/loom/internal/provider"
-	"github.com/jordanhubbard/loom/internal/selfoptimization"
 	"github.com/jordanhubbard/loom/internal/statusboard"
 	"github.com/jordanhubbard/loom/internal/swarm"
 	"github.com/jordanhubbard/loom/internal/taskexecutor"
@@ -96,9 +93,6 @@ type Loom struct {
 	swarmFederation       *swarm.Federation
 	taskExecutor          *taskexecutor.Executor
 	statusBoard           *statusboard.Board
-	ephemeralStateManager *ephemeralstate.Persistence
-	modelSelector         *modelselection.Selector
-	selfOptimizer         *selfoptimization.Optimizer
 	readinessMu           sync.Mutex
 	readinessCache        map[string]projectReadinessState
 	readinessFailures     map[string]time.Time

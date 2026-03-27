@@ -168,12 +168,9 @@ func (p *Persistence) SaveStatusBoardEntry(entry *StatusBoardEntry) error {
 
 // GetStatusBoardEntries retrieves status board entries with optional filters
 func (p *Persistence) GetStatusBoardEntries(category string, limit int) ([]*StatusBoardEntry, error) {
-	if limit <= 0 {
-		limit = 50 // Default limit
-	}
-
 	// Retrieve from database
 	// This would use the database abstraction
+	_ = limit
 
 	return nil, nil
 }
