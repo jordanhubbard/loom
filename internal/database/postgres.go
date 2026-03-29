@@ -58,6 +58,11 @@ func NewPostgres(dsn string) (*Database, error) {
 		return nil, fmt.Errorf("failed to migrate provider routing: %w", err)
 	}
 
+	if err := d.migrateEphemeralState(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to migrate ephemeral state: %w", err)
+	}
+
 	return d, nil
 }
 

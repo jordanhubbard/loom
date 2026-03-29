@@ -163,6 +163,11 @@ func NewPostgreSQL() (*Database, error) {
 		return nil, fmt.Errorf("failed to migrate project memory: %w", err)
 	}
 
+	if err := d.migrateEphemeralState(); err != nil {
+		defer db.Close()
+		return nil, fmt.Errorf("failed to migrate ephemeral state: %w", err)
+	}
+
 	return d, nil
 }
 
