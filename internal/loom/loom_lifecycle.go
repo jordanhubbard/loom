@@ -1748,6 +1748,16 @@ func (e loomCEOEscalator) EscalateBeadToCEO(beadID, reason, returnedTo string) e
 // It creates a taskexecutor.Executor and launches worker goroutines per project.
 // Call this instead of StartDispatchLoop to bypass Temporal/NATS/WorkerPool overhead.
 func (a *Loom) StartTaskExecutor(ctx context.Context) {
+	// Recover any workflow executions orphaned by a previous crash or restart.
+	// Must run before workers start so no bead is skipped due to stale 'active' status.
+	if a.workflowEngine != nil {
+		if n, err := a.workflowEngine.RecoverOrphanedExecutions(); err != nil {
+			log.Printf("[Loom] WARNING: workflow orphan recovery failed: %v", err)
+		} else if n > 0 {
+			log.Printf("[Loom] Startup: recovered %d orphaned workflow execution(s)", n)
+		}
+	}
+
 	exec := taskexecutor.New(
 		a.providerRegistry,
 		a.beadsManager,

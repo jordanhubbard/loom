@@ -350,6 +350,28 @@ func (m *mockDatabase) DeleteWorkflowExecutionByBeadID(beadID string) error {
 	return nil
 }
 
+func (m *mockDatabase) ListActiveWorkflowExecutions() ([]*WorkflowExecution, error) {
+	var result []*WorkflowExecution
+	for _, exec := range m.executions {
+		if exec.Status == ExecutionStatusActive {
+			e := *exec
+			result = append(result, &e)
+		}
+	}
+	return result, nil
+}
+
+func (m *mockDatabase) ResetOrphanedWorkflowExecutions() (int, error) {
+	n := 0
+	for _, exec := range m.executions {
+		if exec.Status == ExecutionStatusActive {
+			exec.Status = ExecutionStatusBlocked
+			n++
+		}
+	}
+	return n, nil
+}
+
 type mockBeadManager struct {
 	beads map[string]map[string]interface{}
 }

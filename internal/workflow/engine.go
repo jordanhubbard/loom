@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +24,9 @@ type Database interface {
 	InsertWorkflowHistory(history *WorkflowExecutionHistory) error
 	ListWorkflowHistory(executionID string) ([]*WorkflowExecutionHistory, error)
 	DeleteWorkflowExecutionByBeadID(beadID string) error
+	// Startup recovery: find and reset orphaned executions left active by a prior crash/restart.
+	ListActiveWorkflowExecutions() ([]*WorkflowExecution, error)
+	ResetOrphanedWorkflowExecutions() (int, error)
 }
 
 // BeadManager interface for bead operations
@@ -52,6 +56,23 @@ func NewEngine(db Database, beads BeadManager) *Engine {
 // GetDatabase returns the underlying database interface
 func (e *Engine) GetDatabase() Database {
 	return e.db
+}
+
+// RecoverOrphanedExecutions resets workflow executions that were left in 'active'
+// state by a previous server crash or restart. Call this once at startup before
+// the dispatcher begins processing beads. Returns the number of executions reset.
+//
+// Orphaned executions have their status set back to 'blocked' so the dispatcher
+// will re-pick them up and resume from the last persisted node.
+func (e *Engine) RecoverOrphanedExecutions() (int, error) {
+	n, err := e.db.ResetOrphanedWorkflowExecutions()
+	if err != nil {
+		return 0, fmt.Errorf("workflow recovery: failed to reset orphaned executions: %w", err)
+	}
+	if n > 0 {
+		log.Printf("[WorkflowEngine] Startup recovery: reset %d orphaned active execution(s) to blocked", n)
+	}
+	return n, nil
 }
 
 // StartWorkflow initiates a workflow for a bead
@@ -577,26 +598,63 @@ func (e *Engine) CheckNodeTimeout(execution *WorkflowExecution) error {
 	return nil
 }
 
-// GetWorkflowForBead determines which workflow to use for a bead
+// GetWorkflowForBead determines which workflow to use for a bead.
+// Detection priority: explicit beadType field → title keyword heuristics → "bug" default.
 func (e *Engine) GetWorkflowForBead(beadType, beadTitle, projectID string) (*Workflow, error) {
-	// Determine workflow type from bead type/title
-	workflowType := "bug" // Default
-
-	// TODO: Add heuristics to detect workflow type from bead
-	// For now, use simple mapping:
-	// - Beads with "UI" or "design" → "ui"
-	// - Beads with "feature" or "enhancement" → "feature"
-	// - Everything else → "bug"
+	workflowType := detectWorkflowType(beadType, beadTitle)
 
 	workflows, err := e.db.ListWorkflows(workflowType, projectID)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(workflows) == 0 {
-		return nil, fmt.Errorf("no workflow found for type %s", workflowType)
+	// Fall back to "bug" workflow if no match for detected type
+	if len(workflows) == 0 && workflowType != "bug" {
+		log.Printf("[WorkflowEngine] No workflow found for type %q (project %s), falling back to 'bug'", workflowType, projectID)
+		workflows, err = e.db.ListWorkflows("bug", projectID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// Return first matching workflow (prioritizes project-specific, then defaults)
+	if len(workflows) == 0 {
+		return nil, fmt.Errorf("no workflow found for type %s (project %s)", workflowType, projectID)
+	}
+
+	// Return first matching workflow (project-specific rows sort before globals in ListWorkflows)
 	return workflows[0], nil
+}
+
+// detectWorkflowType maps a bead's type field and title to a workflow type string.
+// Rules (in order of precedence):
+//  1. Explicit beadType if it's a known type
+//  2. Title keywords: UI/design/frontend → "ui"; feature/enhancement/improvement/add/implement → "feature"
+//  3. Default: "bug"
+func detectWorkflowType(beadType, beadTitle string) string {
+	// Normalize
+	bt := strings.ToLower(strings.TrimSpace(beadType))
+	title := strings.ToLower(beadTitle)
+
+	// Known explicit types win immediately
+	switch bt {
+	case "ui", "feature", "bug":
+		return bt
+	}
+
+	// Title keyword heuristics
+	uiKeywords := []string{"ui", "ux", "design", "frontend", "front-end", "layout", "style", "css", "component", "visual"}
+	for _, kw := range uiKeywords {
+		if strings.Contains(title, kw) {
+			return "ui"
+		}
+	}
+
+	featureKeywords := []string{"feature", "enhancement", "improvement", "implement", "add ", "support ", "integrate", "new "}
+	for _, kw := range featureKeywords {
+		if strings.Contains(title, kw) {
+			return "feature"
+		}
+	}
+
+	return "bug"
 }

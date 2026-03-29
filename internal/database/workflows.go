@@ -489,6 +489,53 @@ func (d *Database) DeleteWorkflowExecutionByBeadID(beadID string) error {
 	return err
 }
 
+// ListActiveWorkflowExecutions returns all executions with status 'active'.
+// Used on startup to identify orphaned executions that were interrupted by a restart.
+func (d *Database) ListActiveWorkflowExecutions() ([]*workflow.WorkflowExecution, error) {
+	rows, err := d.db.Query(rebind(`
+		SELECT id, workflow_id, bead_id, project_id,
+		       current_node_key, status, cycle_count, node_attempt_count,
+		       started_at, completed_at, escalated_at, last_node_at
+		FROM workflow_executions
+		WHERE status = ?
+		ORDER BY last_node_at ASC
+	`), string(workflow.ExecutionStatusActive))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []*workflow.WorkflowExecution
+	for rows.Next() {
+		exec := &workflow.WorkflowExecution{}
+		if err := rows.Scan(
+			&exec.ID, &exec.WorkflowID, &exec.BeadID, &exec.ProjectID,
+			&exec.CurrentNodeKey, &exec.Status, &exec.CycleCount, &exec.NodeAttemptCount,
+			&exec.StartedAt, &exec.CompletedAt, &exec.EscalatedAt, &exec.LastNodeAt,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, exec)
+	}
+	return results, rows.Err()
+}
+
+// ResetOrphanedWorkflowExecutions finds all active executions and resets them to
+// 'blocked' so the dispatcher can re-pick them up after a server restart.
+// Returns the number of executions reset.
+func (d *Database) ResetOrphanedWorkflowExecutions() (int, error) {
+	result, err := d.db.Exec(rebind(`
+		UPDATE workflow_executions
+		SET status = ?, last_node_at = ?
+		WHERE status = ?
+	`), string(workflow.ExecutionStatusBlocked), time.Now(), string(workflow.ExecutionStatusActive))
+	if err != nil {
+		return 0, err
+	}
+	n, _ := result.RowsAffected()
+	return int(n), nil
+}
+
 // InsertWorkflowHistory adds a history entry for a workflow execution
 func (d *Database) InsertWorkflowHistory(history *workflow.WorkflowExecutionHistory) error {
 	if history == nil {
