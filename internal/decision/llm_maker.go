@@ -3,7 +3,7 @@ package decision
 // LLMMaker is an AI-backed decision maker that calls the RCC brain API
 // for reasoning about which agent should handle a task.
 //
-// It satisfies the Maker interface and is used in place of (or chained
+// It satisfies the types.DecisionMaker interface and is used in place of (or chained
 // after) SimpleMaker when LOOM_RCC_BRAIN_URL is set in the environment.
 // When the brain API is unavailable or times out, it falls back to
 // SimpleMaker so loom is never blocked on RCC availability.
@@ -30,7 +30,7 @@ import (
 	"github.com/jordanhubbard/loom/pkg/types"
 )
 
-// LLMMaker implements the Maker interface using the RCC brain API.
+// LLMMaker implements the types.DecisionMaker interface using the RCC brain API.
 type LLMMaker struct {
 	brainURL   string
 	brainToken string
@@ -39,8 +39,8 @@ type LLMMaker struct {
 	httpClient *http.Client
 }
 
-// Ensure LLMMaker satisfies the Maker interface at compile time.
-var _ Maker = (*LLMMaker)(nil)
+// Ensure LLMMaker satisfies the types.DecisionMaker interface at compile time.
+var _ types.DecisionMaker = (*LLMMaker)(nil)
 
 // NewLLMMaker creates a new LLM-backed decision maker.
 // brainURL is the RCC brain endpoint (e.g. "http://rocky:8789").
@@ -68,19 +68,25 @@ func (m *LLMMaker) IsAvailable() bool {
 	return m.brainURL != ""
 }
 
-// Decide selects the most appropriate agent for a task using LLM reasoning.
+// EvaluatePriority delegates priority evaluation to the SimpleMaker fallback.
+// LLM-based priority scoring is not currently implemented.
+func (m *LLMMaker) EvaluatePriority(task *types.Task) int {
+	return m.fallback.EvaluatePriority(task)
+}
+
+// DecideAgent selects the most appropriate agent for a task using LLM reasoning.
 // Falls back to SimpleMaker if the brain API is unreachable or returns an
 // unusable response.
-func (m *LLMMaker) Decide(ctx context.Context, task *types.Task, agents []*types.Agent) (*types.Agent, error) {
+func (m *LLMMaker) DecideAgent(ctx context.Context, task *types.Task, agents []*types.Agent) (*types.Agent, error) {
 	if !m.IsAvailable() || len(agents) == 0 {
-		return m.fallback.Decide(ctx, task, agents)
+		return m.fallback.DecideAgent(ctx, task, agents)
 	}
 
 	prompt := m.buildPrompt(task, agents)
 	result, err := m.callBrain(ctx, prompt)
 	if err != nil {
 		// Brain unreachable — fall back silently
-		return m.fallback.Decide(ctx, task, agents)
+		return m.fallback.DecideAgent(ctx, task, agents)
 	}
 
 	// Parse LLM response: look for an agent name in the output
@@ -89,7 +95,7 @@ func (m *LLMMaker) Decide(ctx context.Context, task *types.Task, agents []*types
 		return chosen, nil
 	}
 	// LLM gave an unusable response — fall back
-	return m.fallback.Decide(ctx, task, agents)
+	return m.fallback.DecideAgent(ctx, task, agents)
 }
 
 // buildPrompt constructs the LLM prompt for agent selection.
@@ -100,17 +106,14 @@ func (m *LLMMaker) buildPrompt(task *types.Task, agents []*types.Agent) string {
 	if task.Description != "" {
 		sb.WriteString(fmt.Sprintf("  Description: %s\n", task.Description))
 	}
-	if len(task.Labels) > 0 {
-		sb.WriteString(fmt.Sprintf("  Labels:      %s\n", strings.Join(task.Labels, ", ")))
-	}
 	sb.WriteString(fmt.Sprintf("  Priority:    %d\n", task.Priority))
 	sb.WriteString("\nAvailable agents:\n")
 	for _, a := range agents {
-		if a.State != types.AgentStateIdle {
+		if a.Status != types.AgentStatusIdle {
 			continue
 		}
 		sb.WriteString(fmt.Sprintf("  - %s (type: %s, capabilities: %s)\n",
-			a.Name, string(a.AgentType), strings.Join(a.Capabilities, ", ")))
+			a.Name, string(a.Type), strings.Join(a.Capabilities, ", ")))
 	}
 	sb.WriteString("\nRespond with ONLY the name of the most appropriate agent ")
 	sb.WriteString("(exactly as listed above), or 'any' if you have no preference. ")
